@@ -95,8 +95,8 @@
           <button onclick="switchTab('wiring')" id="nav-wiring" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
             <i class="fa-solid fa-plug mr-1.5"></i> Wiring Guide
           </button>
-          <button onclick="switchTab('code')" id="nav-code" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
-            <i class="fa-solid fa-code mr-1.5"></i> Code Generators
+          <button onclick="switchTab('settings')" id="nav-settings" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-gear mr-1.5"></i> Settings
           </button>
         </nav>
 
@@ -117,8 +117,8 @@
     <button onclick="switchTab('wiring')" id="mob-nav-wiring" class="px-3 py-1.5 rounded-lg text-slate-400">
       <i class="fa-solid fa-plug mr-1"></i> Wiring
     </button>
-    <button onclick="switchTab('code')" id="mob-nav-code" class="px-3 py-1.5 rounded-lg text-slate-400">
-      <i class="fa-solid fa-code mr-1"></i> Code
+    <button onclick="switchTab('settings')" id="mob-nav-settings" class="px-3 py-1.5 rounded-lg text-slate-400">
+      <i class="fa-solid fa-gear mr-1"></i> Settings
     </button>
   </div>
 
@@ -135,7 +135,7 @@
             <h2 class="text-base font-semibold text-white flex items-center">
               <i class="fa-solid fa-gamepad text-brand-400 mr-2"></i> Master Controller & Sequence Engine
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Control all 8 servos simultaneously, run diagnostics, or capture keyframe sequences.</p>
+            <p class="text-xs text-slate-400 mt-0.5">Control all servos at once, run diagnostics, or build sequences from poses and delays.</p>
           </div>
 
           <!-- Master Action Buttons -->
@@ -159,18 +159,23 @@
             <button onclick="captureKeyframe()" class="bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
               <i class="fa-solid fa-camera mr-1.5"></i> Save Pose
             </button>
+            <button onclick="addDelayBlock()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
+              <i class="fa-solid fa-hourglass-half mr-1.5"></i> Delay
+            </button>
           </div>
         </div>
 
-        <!-- KEYFRAME SEQUENCE TIMELINE -->
+                <!-- SEQUENCE BUILDER (drag blocks to reorder, click to edit) -->
         <div id="sequence-container" class="mt-4 pt-4 border-t border-borderbg/60">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
             <span class="text-xs font-semibold text-slate-300 flex items-center">
-              <i class="fa-solid fa-film text-brand-400 mr-2"></i> Recorded Poses (<span id="pose-count">0</span>)
+              <i class="fa-solid fa-film text-brand-400 mr-2"></i> Sequence (<span id="pose-count">0</span> blocks)
+              <span class="ml-3 font-normal text-slate-500 hidden sm:inline">Drag to reorder · click a block to edit</span>
             </span>
-            <div class="flex items-center space-x-2">
-              <label class="text-xs text-slate-400">Step Delay:</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="text-xs text-slate-400" title="Pause inserted between two poses that follow each other directly">Pose gap:</label>
               <select id="sequence-delay" class="bg-darkbg text-xs border border-borderbg rounded-lg px-2 py-1 text-slate-300">
+                <option value="0">0ms</option>
                 <option value="300">300ms</option>
                 <option value="600" selected>600ms</option>
                 <option value="1000">1000ms</option>
@@ -184,18 +189,18 @@
               </button>
             </div>
           </div>
-
-          <!-- Keyframe List Chips -->
-          <div id="keyframes-list" class="flex items-center space-x-2 overflow-x-auto py-2 min-h-[48px]">
-            <span class="text-xs text-slate-500 italic">No poses captured yet. Click "Save Pose" to record current servo positions.</span>
-          </div>
+          <div id="keyframes-list" class="flex flex-wrap items-center gap-2 py-2 min-h-[48px]"></div>
         </div>
       </div>
 
-      <!-- 8 SERVO CONTROLLER CARDS GRID -->
-      <div id="servo-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Rendered via JS dynamically for 8 channels -->
+      <!-- SERVO GRID HEADER + DYNAMIC SERVO CARDS -->
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-200">Servos <span class="text-slate-500 font-normal">(<span id="servo-count">8</span>/16 pins used)</span></h3>
+        <button id="add-servo-btn" onclick="addServo()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-3 py-2 rounded-xl transition flex items-center disabled:opacity-40 disabled:cursor-not-allowed">
+          <i class="fa-solid fa-plus mr-1.5"></i> Add Servo
+        </button>
       </div>
+      <div id="servo-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
 
       <!-- LIVE TERMINAL / LOG MONITOR -->
       <div class="bg-cardbg rounded-2xl border border-borderbg p-4 shadow-xl">
@@ -222,7 +227,7 @@
         <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
         <div class="text-xs leading-relaxed">
           <strong class="font-semibold text-amber-300 text-sm block mb-1">CRITICAL POWER NOTICE: External Servo Power Required</strong>
-          <p>Standard servos (like SG90 or MG996R) can draw 500mA to 2A under load. <strong>Do NOT power 8 servos directly from the 5V output of an Arduino or ESP32 board!</strong> This will trigger brownout resets or burn out your board's regulator. Connect a dedicated external 5V/6V DC power supply (3A–5A minimum) to the PCA9685 <strong>V+ screw terminal block</strong>. Keep the Ground (GND) lines connected together (Common Ground).</p>
+          <p>Standard servos (like SG90 or MG996R) can draw 500mA to 2A under load. <strong>Do NOT power multiple servos directly from the 5V output of an Arduino or ESP32 board!</strong> This will trigger brownout resets or burn out your board's regulator. Connect a dedicated external 5V/6V DC power supply (3A–5A minimum) to the PCA9685 <strong>V+ screw terminal block</strong>. Keep the Ground (GND) lines connected together (Common Ground).</p>
         </div>
       </div>
 
@@ -296,11 +301,11 @@
           <!-- Servos Output -->
           <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-slate-700">
             <span class="text-xs font-bold text-slate-300 flex items-center mb-3">
-              <i class="fa-solid fa-fan text-amber-400 mr-1.5"></i> 8 Servos Connected
+              <i class="fa-solid fa-fan text-amber-400 mr-1.5"></i> Servos Connected (up to 16)
             </span>
             <div class="space-y-1.5 text-xs font-mono">
               <div class="flex items-center justify-between bg-darkbg p-1.5 rounded text-slate-300">
-                <span>Ch 0 - Ch 7 Pins</span>
+                <span>Channels 0 - 15 (as assigned)</span>
                 <span class="text-[10px] text-slate-400">[ Yellow | Red | Brown ]</span>
               </div>
               <div class="text-[11px] text-slate-400 pt-1 space-y-0.5">
@@ -377,47 +382,43 @@
       </div>
     </section>
 
-    <!-- SECTION 3: COMPLETE CODE GENERATORS -->
-    <section id="tab-code" class="hidden space-y-6">
+    <!-- SECTION 3: SETTINGS -->
+    <section id="tab-settings" class="hidden space-y-6">
       <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h2 class="text-base font-semibold text-white flex items-center">
-              <i class="fa-solid fa-code text-brand-400 mr-2"></i> Multi-Platform Firmware & Client Code
+              <i class="fa-solid fa-gear text-brand-400 mr-2"></i> Settings
             </h2>
-            <p class="text-xs text-slate-400">Select your preferred platform or upload the WebSerial firmware to control real hardware directly from this page.</p>
+            <p class="text-xs text-slate-400">Firmware for your ESP32. Flash it once, then connect with WebSerial to control any of the 16 PCA9685 pins.</p>
           </div>
-          <button onclick="copyCode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl transition flex items-center self-start sm:self-auto">
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-slate-200 flex items-center">
+            <i class="fa-solid fa-bolt text-brand-400 mr-2"></i> ESP32 WebSerial Firmware
+          </h3>
+          <button onclick="copyCode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl transition flex items-center">
             <i class="fa-solid fa-copy mr-1.5"></i> Copy Code
           </button>
         </div>
-
-        <!-- Language Tabs -->
-        <div class="flex border-b border-borderbg space-x-2 text-xs font-semibold overflow-x-auto pb-px">
-          <button onclick="showCodeTab('webserial')" id="codetab-webserial" class="px-4 py-2 text-brand-400 border-b-2 border-brand-400 font-bold whitespace-nowrap">
-            <i class="fa-solid fa-bolt mr-1"></i> ESP32/Arduino (WebSerial Firmware)
-          </button>
-          <button onclick="showCodeTab('arduino')" id="codetab-arduino" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
-            <i class="fa-custom fa-c mr-1"></i> Arduino C++ (Adafruit Lib)
-          </button>
-          <button onclick="showCodeTab('python')" id="codetab-python" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
-            <i class="fa-brands fa-python mr-1"></i> Raspberry Pi (Python)
-          </button>
-          <button onclick="showCodeTab('micropython')" id="codetab-micropython" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
-            <i class="fa-solid fa-microchip mr-1"></i> MicroPython
-          </button>
-        </div>
-
-        <!-- Code Block Viewer -->
-        <div class="relative mt-4">
-          <pre id="code-display" class="bg-darkbg p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto h-96 border border-borderbg leading-relaxed select-all">
-            <!-- Populated via JS -->
-          </pre>
-        </div>
+        <pre id="code-display" class="bg-darkbg p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto h-96 border border-borderbg leading-relaxed select-all"></pre>
       </div>
     </section>
 
   </main>
+
+  <!-- BLOCK EDITOR POPUP -->
+  <div id="editor-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeEditor()">
+    <div class="bg-cardbg border border-borderbg rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b border-borderbg">
+        <h3 id="editor-title" class="text-sm font-semibold text-white"></h3>
+        <button onclick="closeEditor()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="editor-body" class="p-4 overflow-y-auto space-y-3"></div>
+      <div id="editor-actions" class="p-4 border-t border-borderbg flex flex-wrap items-center gap-2"></div>
+    </div>
+  </div>
 
   <!-- FOOTER -->
   <footer class="border-t border-borderbg bg-cardbg/40 py-4 text-center text-xs text-slate-500 mt-auto">
@@ -427,25 +428,27 @@
   <!-- JAVASCRIPT LOGIC ENGINE -->
   <script>
     // --- STATE MANAGEMENT ---
-    const SERVOS_COUNT = 8;
+    const MAX_SERVOS = 16;
+    const START_SERVOS = 8;
     const DEFAULT_LABELS = ["Base / Pan", "Shoulder / Pitch", "Elbow / Lift", "Wrist / Roll", "Gripper / Claw", "Aux Servo 5", "Aux Servo 6", "Aux Servo 7"];
-    
+
     // Pulse Width Limits (SG90 / Standard Servos: ~500us to 2150 at 50Hz)
     const MIN_PULSE_US = 500;
     const MAX_PULSE_US = 2150;
-    const PCA_FREQ = 50; // 50 Hz standard servo frequency
 
+    // Each servo box has a permanent unique id (box) and an assignable PCA9685 pin (0-15)
+    let nextId = 0;
     let servoState = [];
-    for (let i = 0; i < SERVOS_COUNT; i++) {
-      servoState.push({
-        id: i,
-        label: DEFAULT_LABELS[i] || `Servo ${i}`,
-        angle: 90,
-        enabled: true
-      });
+    for (let i = 0; i < START_SERVOS; i++) {
+      servoState.push({ id: nextId++, label: DEFAULT_LABELS[i], angle: 90, enabled: true, pin: i });
     }
+    const S = (id) => servoState.find(s => s.id === id);
 
-    let recordedPoses = [];
+    // Sequence blocks: {uid, type:'pose', angles:{boxId:angle}} or {uid, type:'delay', ms}
+    let sequence = [];
+    let seqUid = 0;
+    let isPlaying = false;
+    let stopRequested = false;
     let isSweeping = false;
     let sweepInterval = null;
     let serialPort = null;
@@ -455,20 +458,16 @@
     window.onload = function() {
       renderServoCards();
       renderBoardDiagram('esp32');
-      showCodeTab('webserial');
+      showFirmware();
+      updateSequenceUI();
       logTerminal("PCA9685 Studio Ready. Connect WebSerial or use standalone mode.");
     };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditor(); });
 
     // --- TAB SWITCHING LOGIC ---
     function switchTab(tabId) {
-      document.getElementById('tab-gui').classList.add('hidden');
-      document.getElementById('tab-wiring').classList.add('hidden');
-      document.getElementById('tab-code').classList.add('hidden');
-
-      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
-
-      // Update Nav Buttons Highlight
-      ['gui', 'wiring', 'code'].forEach(t => {
+      ['gui', 'wiring', 'settings'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabId);
         const btn = document.getElementById(`nav-${t}`);
         const mobBtn = document.getElementById(`mob-nav-${t}`);
         if (t === tabId) {
@@ -481,72 +480,110 @@
       });
     }
 
+    // --- ADD / REMOVE / ASSIGN SERVOS ---
+    function freePin() {
+      for (let p = 0; p < 16; p++) if (!servoState.some(s => s.pin === p)) return p;
+      return -1;
+    }
+
+    function addServo() {
+      const pin = freePin();
+      if (servoState.length >= MAX_SERVOS || pin < 0) return;
+      servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin });
+      renderServoCards();
+      logTerminal(`Added servo on pin ${pin}.`);
+    }
+
+    function removeServo(id) {
+      if (servoState.length <= 1) return;
+      const s = S(id);
+      servoState = servoState.filter(x => x.id !== id);
+      renderServoCards();
+      if (editor) renderEditor();
+      logTerminal(`Removed servo "${s.label}" (pin ${s.pin}).`);
+    }
+
+    function changePin(id, val) {
+      const pin = parseInt(val);
+      const owner = servoState.find(s => s.pin === pin && s.id !== id);
+      if (owner) {
+        logTerminal(`Pin ${pin} is already used by "${owner.label}". Pick a free pin.`);
+      } else {
+        S(id).pin = pin;
+        logTerminal(`"${S(id).label}" now controls pin ${pin}.`);
+      }
+      renderServoCards();
+      if (editor) renderEditor();
+    }
+
     // --- RENDER SERVO CONTROL CARDS ---
     function renderServoCards() {
       const grid = document.getElementById('servo-grid');
       grid.innerHTML = '';
+      document.getElementById('servo-count').innerText = servoState.length;
+      document.getElementById('add-servo-btn').disabled = servoState.length >= MAX_SERVOS;
+
+      const qb = 'bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition';
+      const pb = 'bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition';
 
       servoState.forEach((servo) => {
-        const pulse = angleToPulse(servo.angle);
+        const id = servo.id;
+        const d = servo.enabled ? '' : 'disabled';
+        let pinOpts = '';
+        for (let p = 0; p < 16; p++) {
+          const owner = servoState.find(x => x.pin === p && x.id !== id);
+          pinOpts += `<option value="${p}" ${p === servo.pin ? 'selected' : ''} ${owner ? 'disabled' : ''}>${p}${owner ? ' (used)' : ''}</option>`;
+        }
         const card = document.createElement('div');
         card.className = `bg-cardbg rounded-2xl border ${servo.enabled ? 'border-borderbg' : 'border-slate-800 opacity-60'} p-4 shadow-lg transition-all duration-200 relative flex flex-col justify-between`;
-        card.id = `card-servo-${servo.id}`;
-
+        card.id = `card-servo-${id}`;
         card.innerHTML = `
           <div>
-            <!-- Header: Title & Toggle Switch -->
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center space-x-2">
-                <span class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs flex items-center justify-center font-bold">
-                  ${servo.id}
-                </span>
-                <input type="text" value="${servo.label}" onchange="updateLabel(${servo.id}, this.value)" 
-                  class="bg-transparent text-xs font-semibold text-slate-200 hover:bg-darkbg/50 focus:bg-darkbg px-1.5 py-0.5 rounded border border-transparent focus:border-borderbg focus:outline-none transition w-32 truncate" />
+            <div class="flex items-center justify-between mb-2 gap-2">
+              <div class="flex items-center space-x-1.5 min-w-0">
+                <select onchange="changePin(${id}, this.value)" title="PCA9685 pin this box controls"
+                  class="bg-slate-800 border border-slate-700 text-brand-400 font-mono text-xs font-bold rounded-lg px-1 py-0.5 focus:outline-none shrink-0">${pinOpts}</select>
+                <input type="text" value="${servo.label.replace(/"/g, '&quot;')}" onchange="updateLabel(${id}, this.value)"
+                  class="bg-transparent text-xs font-semibold text-slate-200 hover:bg-darkbg/50 focus:bg-darkbg px-1.5 py-0.5 rounded border border-transparent focus:border-borderbg focus:outline-none transition w-full min-w-0 truncate" />
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" ${servo.enabled ? 'checked' : ''} onchange="toggleServoEnable(${servo.id}, this.checked)" class="sr-only peer">
-                <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-              </label>
+              <div class="flex items-center space-x-2 shrink-0">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" ${servo.enabled ? 'checked' : ''} onchange="toggleServoEnable(${id}, this.checked)" class="sr-only peer">
+                  <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+                </label>
+                <button onclick="removeServo(${id})" title="Remove servo" ${servoState.length <= 1 ? 'disabled' : ''} class="text-slate-500 hover:text-rose-400 transition text-xs disabled:opacity-30"><i class="fa-solid fa-trash-can"></i></button>
+              </div>
             </div>
 
-            <!-- Circular / Value Visualizer -->
             <div class="flex items-center justify-between bg-darkbg/60 p-3 rounded-xl border border-borderbg/40 my-3">
               <div>
                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Angle</span>
-                <span id="angle-display-${servo.id}" class="text-2xl font-bold font-mono text-brand-400">${servo.angle}°</span>
+                <span id="angle-display-${id}" class="text-2xl font-bold font-mono text-brand-400">${servo.angle}°</span>
               </div>
               <div class="text-right">
                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">PWM Pulse</span>
-                <span id="pulse-display-${servo.id}" class="text-xs font-mono text-slate-300">${pulse} µs</span>
+                <span id="pulse-display-${id}" class="text-xs font-mono text-slate-300">${angleToPulse(servo.angle)} µs</span>
               </div>
             </div>
 
-            <!-- Slider Control -->
             <div class="space-y-1 mb-4">
-              <input type="range" min="0" max="180" value="${servo.angle}" ${servo.enabled ? '' : 'disabled'}
-                oninput="onSliderMove(${servo.id}, this.value)" 
-                id="slider-${servo.id}"
-                class="w-full" />
-              <div class="flex justify-between text-[10px] font-mono text-slate-500">
-                <span>0°</span>
-                <span>90°</span>
-                <span>180°</span>
-              </div>
+              <input type="range" min="0" max="180" value="${servo.angle}" ${d}
+                oninput="onSliderMove(${id}, this.value)" id="slider-${id}" class="w-full" />
+              <div class="flex justify-between text-[10px] font-mono text-slate-500"><span>0°</span><span>90°</span><span>180°</span></div>
             </div>
           </div>
 
-          <!-- Quick Adjustment & Presets Buttons -->
           <div class="space-y-2 pt-2 border-t border-borderbg/40">
             <div class="grid grid-cols-4 gap-1">
-              <button onclick="stepAngle(${servo.id}, -5)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">-5°</button>
-              <button onclick="stepAngle(${servo.id}, -1)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">-1°</button>
-              <button onclick="stepAngle(${servo.id}, 1)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">+1°</button>
-              <button onclick="stepAngle(${servo.id}, 5)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">+5°</button>
+              <button onclick="stepAngle(${id}, -5)" ${d} class="${qb}">-5°</button>
+              <button onclick="stepAngle(${id}, -1)" ${d} class="${qb}">-1°</button>
+              <button onclick="stepAngle(${id}, 1)" ${d} class="${qb}">+1°</button>
+              <button onclick="stepAngle(${id}, 5)" ${d} class="${qb}">+5°</button>
             </div>
             <div class="grid grid-cols-3 gap-1">
-              <button onclick="setServoAngle(${servo.id}, 0)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">0° Min</button>
-              <button onclick="setServoAngle(${servo.id}, 90)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">90° Mid</button>
-              <button onclick="setServoAngle(${servo.id}, 180)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">180° Max</button>
+              <button onclick="setServoAngle(${id}, 0)" ${d} class="${pb}">0° Min</button>
+              <button onclick="setServoAngle(${id}, 90)" ${d} class="${pb}">90° Mid</button>
+              <button onclick="setServoAngle(${id}, 180)" ${d} class="${pb}">180° Max</button>
             </div>
           </div>
         `;
@@ -560,46 +597,37 @@
     }
 
     function setServoAngle(id, angle, transmit = true) {
+      const s = S(id);
+      if (!s) return;
       angle = Math.max(0, Math.min(180, parseInt(angle)));
-      servoState[id].angle = angle;
+      s.angle = angle;
 
-      // Update UI elements directly for fast response
       const angleDisp = document.getElementById(`angle-display-${id}`);
       const pulseDisp = document.getElementById(`pulse-display-${id}`);
       const slider = document.getElementById(`slider-${id}`);
-
       if (angleDisp) angleDisp.innerText = `${angle}°`;
       if (pulseDisp) pulseDisp.innerText = `${angleToPulse(angle)} µs`;
       if (slider) slider.value = angle;
 
-      if (transmit && servoState[id].enabled) {
-        sendServoCommand(id, angle);
-      }
+      if (transmit && s.enabled) sendServoCommand(s.pin, angle);
     }
 
-    function onSliderMove(id, value) {
-      setServoAngle(id, value, true);
-    }
-
-    function stepAngle(id, delta) {
-      const current = servoState[id].angle;
-      setServoAngle(id, current + delta, true);
-    }
+    function onSliderMove(id, value) { setServoAngle(id, value, true); }
+    function stepAngle(id, delta) { setServoAngle(id, S(id).angle + delta, true); }
 
     function toggleServoEnable(id, enabled) {
-      servoState[id].enabled = enabled;
+      S(id).enabled = enabled;
       renderServoCards();
-      logTerminal(`Servo ${id} (${servoState[id].label}) ${enabled ? 'ENABLED' : 'DISABLED'}`);
+      logTerminal(`Servo on pin ${S(id).pin} (${S(id).label}) ${enabled ? 'ENABLED' : 'DISABLED'}`);
     }
 
     function updateLabel(id, newLabel) {
-      servoState[id].label = newLabel || `Servo ${id}`;
+      S(id).label = newLabel || `Servo ${S(id).pin}`;
+      if (editor) renderEditor();
     }
 
     function setAllServos(angle) {
-      servoState.forEach(s => {
-        if (s.enabled) setServoAngle(s.id, angle, true);
-      });
+      servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, angle, true); });
       logTerminal(`Master Command: Set All Servos to ${angle}°`);
     }
 
@@ -622,81 +650,247 @@
 
         let currentAngle = 0;
         let direction = 5;
-
         sweepInterval = setInterval(() => {
           currentAngle += direction;
-          if (currentAngle >= 180 || currentAngle <= 0) {
-            direction *= -1;
-          }
-          servoState.forEach(s => {
-            if (s.enabled) setServoAngle(s.id, currentAngle, true);
-          });
+          if (currentAngle >= 180 || currentAngle <= 0) direction *= -1;
+          servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, currentAngle, true); });
         }, 100);
       }
     }
 
-    // --- SEQUENCE PLAYER ENGINE ---
+    // --- SEQUENCE BUILDER ---
     function captureKeyframe() {
-      const pose = servoState.map(s => ({ id: s.id, angle: s.angle }));
-      recordedPoses.push(pose);
-
+      const angles = {};
+      servoState.forEach(s => { angles[s.id] = s.angle; });
+      sequence.push({ uid: ++seqUid, type: 'pose', angles });
       updateSequenceUI();
-      logTerminal(`Captured Pose #${recordedPoses.length}`);
+      logTerminal(`Captured pose (${sequence.length} blocks in sequence).`);
     }
 
-    function updateSequenceUI() {
-      const list = document.getElementById('keyframes-list');
-      const count = document.getElementById('pose-count');
-      const playBtn = document.getElementById('play-seq-btn');
-
-      count.innerText = recordedPoses.length;
-      playBtn.disabled = recordedPoses.length === 0;
-
-      if (recordedPoses.length === 0) {
-        list.innerHTML = `<span class="text-xs text-slate-500 italic">No poses captured yet. Click "Save Pose" to record current servo positions.</span>`;
-        return;
-      }
-
-      list.innerHTML = '';
-      recordedPoses.forEach((pose, idx) => {
-        const chip = document.createElement('div');
-        chip.className = "bg-slate-800 border border-borderbg rounded-lg px-2.5 py-1 text-xs text-slate-300 flex items-center space-x-2 shrink-0";
-        chip.innerHTML = `
-          <span class="font-bold text-brand-400">#${idx + 1}</span>
-          <span class="text-[10px] text-slate-400">(${pose.map(p => p.angle + '°').slice(0,4).join(',')})</span>
-          <button onclick="deletePose(${idx})" class="text-slate-500 hover:text-rose-400 transition ml-1"><i class="fa-solid fa-xmark"></i></button>
-        `;
-        list.appendChild(chip);
-      });
+    function addDelayBlock() {
+      sequence.push({ uid: ++seqUid, type: 'delay', ms: 500 });
+      updateSequenceUI();
     }
 
-    function deletePose(index) {
-      recordedPoses.splice(index, 1);
+    function deleteBlock(uid) {
+      sequence = sequence.filter(b => b.uid !== uid);
+      if (editor && editor.uid === uid) closeEditor();
       updateSequenceUI();
     }
 
     function clearSequence() {
-      recordedPoses = [];
+      sequence = [];
+      closeEditor();
       updateSequenceUI();
-      logTerminal("Cleared recorded pose sequence.");
+      logTerminal("Cleared sequence.");
+    }
+
+    let dragIdx = null;
+    function updateSequenceUI() {
+      const list = document.getElementById('keyframes-list');
+      document.getElementById('pose-count').innerText = sequence.length;
+      document.getElementById('play-seq-btn').disabled = sequence.length === 0 && !isPlaying;
+
+      if (sequence.length === 0) {
+        list.innerHTML = `<span class="text-xs text-slate-500 italic">Nothing here yet. Click "Save Pose" to record the servos, or "Delay" to add a pause.</span>`;
+        return;
+      }
+
+      list.innerHTML = '';
+      let poseNo = 0;
+      sequence.forEach((b, idx) => {
+        const el = document.createElement('div');
+        el.draggable = true;
+        el.dataset.uid = b.uid;
+        let inner;
+        if (b.type === 'pose') {
+          poseNo++;
+          const preview = servoState.slice(0, 4).map(s => b.angles[s.id] !== undefined ? b.angles[s.id] + '°' : '–').join(', ');
+          el.className = "bg-slate-800 hover:bg-slate-700 border border-borderbg rounded-lg px-2.5 py-1.5 text-xs text-slate-300 flex items-center space-x-2 cursor-grab active:cursor-grabbing select-none transition";
+          inner = `<i class="fa-solid fa-grip-vertical text-slate-600"></i><i class="fa-solid fa-camera text-brand-400"></i>
+                   <span class="font-bold text-brand-400">Pose ${poseNo}</span><span class="text-[10px] text-slate-400">(${preview})</span>`;
+        } else {
+          el.className = "bg-amber-900/20 hover:bg-amber-900/30 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-200 flex items-center space-x-2 cursor-grab active:cursor-grabbing select-none transition";
+          inner = `<i class="fa-solid fa-grip-vertical text-amber-700"></i><i class="fa-solid fa-hourglass-half text-amber-400"></i>
+                   <span class="font-bold text-amber-300">Delay</span><span class="text-[10px]">${b.ms}ms</span>`;
+        }
+        el.innerHTML = inner + `<button onclick="event.stopPropagation();deleteBlock(${b.uid})" class="text-slate-500 hover:text-rose-400 transition ml-1"><i class="fa-solid fa-xmark"></i></button>`;
+
+        el.addEventListener('click', () => openBlockEditor(b.uid));
+        el.addEventListener('dragstart', e => {
+          dragIdx = idx;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(idx));
+          el.classList.add('opacity-40');
+        });
+        el.addEventListener('dragend', () => { dragIdx = null; updateSequenceUI(); });
+        el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('ring-2', 'ring-brand-400'); });
+        el.addEventListener('dragleave', () => el.classList.remove('ring-2', 'ring-brand-400'));
+        el.addEventListener('drop', e => {
+          e.preventDefault();
+          if (dragIdx === null || dragIdx === idx) return;
+          const [moved] = sequence.splice(dragIdx, 1);
+          sequence.splice(idx, 0, moved);
+          dragIdx = null;
+          updateSequenceUI();
+        });
+        list.appendChild(el);
+      });
+    }
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    function setPlayUI(playing) {
+      const btn = document.getElementById('play-seq-btn');
+      btn.innerHTML = playing ? '<i class="fa-solid fa-stop mr-1"></i> Stop' : '<i class="fa-solid fa-play mr-1"></i> Play Sequence';
+      btn.className = playing
+        ? "bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1 rounded-lg transition"
+        : "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded-lg transition disabled:opacity-50";
     }
 
     async function playSequence() {
-      if (recordedPoses.length === 0) return;
+      if (isPlaying) { stopRequested = true; return; }
+      if (sequence.length === 0) return;
 
-      const delayMs = parseInt(document.getElementById('sequence-delay').value);
-      logTerminal(`Playing Sequence (${recordedPoses.length} keyframes, ${delayMs}ms step delay)...`);
+      isPlaying = true;
+      stopRequested = false;
+      setPlayUI(true);
+      const gap = parseInt(document.getElementById('sequence-delay').value);
+      const seq = [...sequence];
+      logTerminal(`Playing sequence (${seq.length} blocks)...`);
 
-      for (let i = 0; i < recordedPoses.length; i++) {
-        const pose = recordedPoses[i];
-        pose.forEach(item => {
-          if (servoState[item.id].enabled) {
-            setServoAngle(item.id, item.angle, true);
-          }
-        });
-        await new Promise(r => setTimeout(r, delayMs));
+      for (let i = 0; i < seq.length && !stopRequested; i++) {
+        const b = seq[i];
+        if (b.type === 'pose') {
+          servoState.forEach(s => {
+            if (s.enabled && b.angles[s.id] !== undefined) setServoAngle(s.id, b.angles[s.id], true);
+          });
+          const next = seq[i + 1];
+          if (next && next.type === 'pose') await sleep(gap);
+        } else {
+          await sleep(b.ms);
+        }
       }
-      logTerminal("Sequence Playback Complete.");
+
+      logTerminal(stopRequested ? "Sequence stopped." : "Sequence playback complete.");
+      isPlaying = false;
+      stopRequested = false;
+      setPlayUI(false);
+      updateSequenceUI();
+    }
+
+    // --- BLOCK EDITOR POPUP ---
+    let editor = null; // {uid, snapshot, live}
+    const curBlock = () => editor && sequence.find(b => b.uid === editor.uid);
+
+    function openBlockEditor(uid) {
+      const b = sequence.find(x => x.uid === uid);
+      if (!b) return;
+      // Servos added after this pose was saved start at their current angle
+      if (b.type === 'pose') servoState.forEach(s => { if (b.angles[s.id] === undefined) b.angles[s.id] = s.angle; });
+      editor = { uid, snapshot: JSON.parse(JSON.stringify(b)), live: false };
+      renderEditor();
+      const m = document.getElementById('editor-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeEditor() {
+      editor = null;
+      const m = document.getElementById('editor-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+      updateSequenceUI();
+    }
+
+    function renderEditor() {
+      const b = curBlock();
+      if (!b) return;
+      const body = document.getElementById('editor-body');
+      const actions = document.getElementById('editor-actions');
+      const btn = 'text-xs px-3 py-2 rounded-xl border transition flex items-center';
+      const idx = sequence.indexOf(b) + 1;
+
+      if (b.type === 'pose') {
+        document.getElementById('editor-title').innerHTML = `<i class="fa-solid fa-camera text-brand-400 mr-2"></i>Edit pose (block ${idx})`;
+        body.innerHTML = servoState.map(s => `
+          <div class="bg-darkbg/60 rounded-xl border border-borderbg/40 p-3 ${s.enabled ? '' : 'opacity-50'}">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs text-slate-300 truncate"><span class="font-mono text-brand-400 font-bold mr-1.5">Pin ${s.pin}</span>${s.label}${s.enabled ? '' : ' (disabled)'}</span>
+              <span id="ed-val-${s.id}" class="text-sm font-mono font-bold text-brand-400">${b.angles[s.id]}°</span>
+            </div>
+            <input type="range" min="0" max="180" value="${b.angles[s.id]}" class="w-full" oninput="editPoseAngle(${s.id}, this.value)">
+          </div>`).join('') + `<p class="text-[11px] text-slate-500">Changes to the pose are saved automatically.</p>`;
+
+        const live = editor.live;
+        actions.innerHTML = `
+          <button onclick="editorUpdate()" class="${btn} bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white" title="Send this pose to the servos once"><i class="fa-solid fa-paper-plane mr-1.5"></i>Update</button>
+          <button onclick="toggleLive()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Move the servos while you drag the sliders">
+            <span class="relative inline-block w-7 h-4 rounded-full mr-2 ${live ? 'bg-brand-500' : 'bg-slate-600'}"><span class="absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${live ? 'left-3.5' : 'left-0.5'}"></span></span>Live</button>
+          <button onclick="editorUndo()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Restore the values from before you started editing"><i class="fa-solid fa-rotate-left mr-1.5"></i>Undo</button>
+          <button onclick="editorPhysical()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Copy the servo positions currently applied on the real hardware"><i class="fa-solid fa-hand mr-1.5"></i>Physical</button>
+          <button onclick="closeEditor()" class="${btn} bg-brand-600 hover:bg-brand-500 border-brand-500 text-white ml-auto">Done</button>`;
+      } else {
+        document.getElementById('editor-title').innerHTML = `<i class="fa-solid fa-hourglass-half text-amber-400 mr-2"></i>Edit delay (block ${idx})`;
+        body.innerHTML = `
+          <label class="text-xs text-slate-400 block">Wait time (milliseconds)</label>
+          <div class="flex items-center space-x-2">
+            <input type="number" min="0" step="50" value="${b.ms}" oninput="editDelay(this.value)"
+              class="bg-darkbg border border-borderbg rounded-lg px-3 py-2 text-sm font-mono text-slate-100 w-40 focus:outline-none focus:border-brand-500">
+            <span class="text-xs text-slate-500">ms</span>
+          </div>`;
+        actions.innerHTML = `
+          <button onclick="editorUndo()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200"><i class="fa-solid fa-rotate-left mr-1.5"></i>Undo</button>
+          <button onclick="closeEditor()" class="${btn} bg-brand-600 hover:bg-brand-500 border-brand-500 text-white ml-auto">Done</button>`;
+      }
+    }
+
+    function editPoseAngle(id, v) {
+      const b = curBlock();
+      if (!b) return;
+      b.angles[id] = parseInt(v);
+      document.getElementById(`ed-val-${id}`).innerText = `${v}°`;
+      if (editor.live) setServoAngle(id, v, true);
+    }
+
+    function editDelay(v) {
+      const b = curBlock();
+      if (b) b.ms = Math.max(0, parseInt(v) || 0);
+    }
+
+    function applyPose(b) {
+      servoState.forEach(s => { if (s.enabled && b.angles[s.id] !== undefined) setServoAngle(s.id, b.angles[s.id], true); });
+    }
+
+    function editorUpdate() {
+      const b = curBlock();
+      if (!b) return;
+      applyPose(b);
+      logTerminal("Pose applied to servos.");
+    }
+
+    function toggleLive() {
+      editor.live = !editor.live;
+      if (editor.live) applyPose(curBlock());
+      renderEditor();
+      logTerminal(`Live update ${editor.live ? 'ON' : 'OFF'}.`);
+    }
+
+    function editorUndo() {
+      const b = curBlock();
+      if (!b) return;
+      const snap = JSON.parse(JSON.stringify(editor.snapshot));
+      if (b.type === 'pose') { b.angles = snap.angles; if (editor.live) applyPose(b); }
+      else b.ms = snap.ms;
+      renderEditor();
+    }
+
+    function editorPhysical() {
+      const b = curBlock();
+      if (!b || b.type !== 'pose') return;
+      servoState.forEach(s => { b.angles[s.id] = s.angle; });
+      renderEditor();
+      logTerminal("Copied current physical servo positions into the pose.");
     }
 
     // --- HARDWARE WEBSERIAL INTEGRATION ---
@@ -817,9 +1011,8 @@
       }
     }
 
-    // --- CODE GENERATOR TEMPLATES ---
-    const CODE_TEMPLATES = {
-      webserial: `/*
+    // --- ESP32 FIRMWARE ---
+    const ESP32_FIRMWARE = `/*
  * PCA9685 WebSerial Control Firmware (ESP32 / Arduino)
  * Receives serial commands from Web GUI (e.g. "s 0 90\\n")
  * Library Required: Adafruit PWM Servo Driver Library
@@ -876,177 +1069,20 @@ void loop() {
       }
     }
   }
-}`,
+}`;
 
-      arduino: `/*
- * Standalone PCA9685 8-Servo Control Code (Arduino / ESP32)
- * Library: Adafruit PWM Servo Driver Library
- */
-
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
-
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
-
-#define SERVOMIN  125 // 0 degrees
-#define SERVOMAX  625 // 180 degrees
-
-void setServoAngle(uint8_t n, uint8_t angle) {
-  uint16_t pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
-  pwm.setPWM(n, 0, pulse);
-}
-
-void setup() {
-  Serial.begin(115200);
-  pwm.begin();
-  pwm.setPWMFreq(50); // Standard Servo Frequency 50Hz
-  
-  // Set initial pose (All 90 degrees)
-  for(int i = 0; i < 8; i++) {
-    setServoAngle(i, 90);
-  }
-}
-
-void loop() {
-  // Example Sweep for 8 Servos
-  for (int angle = 0; angle <= 180; angle += 5) {
-    for (int i = 0; i < 8; i++) {
-      setServoAngle(i, angle);
-    }
-    delay(20);
-  }
-  
-  for (int angle = 180; angle >= 0; angle -= 5) {
-    for (int i = 0; i < 8; i++) {
-      setServoAngle(i, angle);
-    }
-    delay(20);
-  }
-}`,
-
-      python: `# Raspberry Pi Python (CircuitPython PCA9685 Driver)
-# Install dependencies:
-# pip3 install adafruit-circuitpython-pca9685 adafruit-circuitpython-servo
-
-import time
-import board
-import busio
-from adafruit_pca9685 import PCA9685
-from adafruit_motor import servo
-
-# Initialize I2C Bus
-i2c = busio.I2C(board.SCL, board.SDA)
-
-# Initialize PCA9685 Module
-pca = PCA9685(i2c)
-pca.frequency = 50 # 50Hz Standard Servo Frequency
-
-# Create array of 8 servo objects with custom pulse width range
-servos = []
-for i in range(8):
-    s = servo.Servo(pca.channels[i], min_pulse=500, max_pulse=2500)
-    servos.append(s)
-
-print("Sweeping 8 Servos on PCA9685...")
-
-try:
-    while True:
-        # Move to 0 Degrees
-        for s in servos:
-            s.angle = 0
-        time.sleep(1)
-
-        # Move to 90 Degrees
-        for s in servos:
-            s.angle = 90
-        time.sleep(1)
-
-        # Move to 180 Degrees
-        for s in servos:
-            s.angle = 180
-        time.sleep(1)
-
-except KeyboardInterrupt:
-    pca.deinit()
-    print("\nPCA9685 Controller Terminated.")`,
-
-      micropython: `# MicroPython PCA9685 Driver Example
-# Requires microPython PCA9685 library module (pca9685.py)
-
-from machine import Pin, I2C
-import time
-
-class PCA9685:
-    def __init__(self, i2c, address=0x40):
-        self.i2c = i2c
-        self.address = address
-        self.reset()
-        
-    def reset(self):
-        self.i2c.writeto_mem(self.address, 0x00, b'\x00')
-        
-    def set_freq(self, freq):
-        prescale = int(25000000.0 / (4096 * freq) - 0.5)
-        oldmode = self.i2c.readfrom_mem(self.address, 0x00, 1)[0]
-        newmode = (oldmode & 0x7F) | 0x10
-        self.i2c.writeto_mem(self.address, 0x00, bytes([newmode]))
-        self.i2c.writeto_mem(self.address, 0xFE, bytes([prescale]))
-        self.i2c.writeto_mem(self.address, 0x00, bytes([oldmode]))
-        time.sleep_ms(5)
-        self.i2c.writeto_mem(self.address, 0x00, bytes([oldmode | 0xa1]))
-
-    def set_pwm(self, channel, on, off):
-        data = bytearray([0x06 + 4 * channel, on & 0xFF, on >> 8, off & 0xFF, off >> 8])
-        self.i2c.writeto(self.address, data)
-
-    def set_angle(self, channel, angle):
-        # Map 0-180 deg to tick counts (approx 102-512)
-        ticks = int(102 + (angle / 180.0) * (512 - 102))
-        self.set_pwm(channel, 0, ticks)
-
-# ESP32 MicroPython Pin Config (SDA=21, SCL=22)
-i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=100000)
-pca = PCA9685(i2c)
-pca.set_freq(50)
-
-print("MicroPython PCA9685 Ready.")
-while True:
-    for angle in [0, 90, 180]:
-        for ch in range(8):
-            pca.set_angle(ch, angle)
-        time.sleep(1)`
-    };
-
-    let activeCodeTab = 'webserial';
-
-    function showCodeTab(tab) {
-      activeCodeTab = tab;
-      const display = document.getElementById('code-display');
-      display.textContent = CODE_TEMPLATES[tab];
-
-      ['webserial', 'arduino', 'python', 'micropython'].forEach(t => {
-        const btn = document.getElementById(`codetab-${t}`);
-        if (t === tab) {
-          btn.className = "px-4 py-2 text-brand-400 border-b-2 border-brand-400 font-bold whitespace-nowrap";
-        } else {
-          btn.className = "px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap";
-        }
-      });
+    function showFirmware() {
+      document.getElementById('code-display').textContent = ESP32_FIRMWARE;
     }
 
     function copyCode() {
-      const codeText = CODE_TEMPLATES[activeCodeTab];
-      
-      // Fallback/Standard Copy for iframe environment
       const textarea = document.createElement('textarea');
-      textarea.value = codeText;
+      textarea.value = ESP32_FIRMWARE;
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-
-      logTerminal("Code copied to clipboard!");
-      alert("Code copied to clipboard!");
+      logTerminal("Firmware copied to clipboard!");
     }
   </script>
 </body>
