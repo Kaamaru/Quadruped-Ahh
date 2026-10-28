@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCA9685 16-Channel I2C Servo Controller & Guide</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              900: '#0c4a6e',
+            },
+            darkbg: '#0f172a',
+            cardbg: '#1e293b',
+            borderbg: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    /* Custom Range Slider styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 8px;
+      cursor: pointer;
+      background: #334155;
+      border-radius: 4px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      background: #0ea5e9;
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -6px;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+      transition: transform 0.1s ease, background-color 0.1s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #38bdf8;
+    }
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col">
+
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="border-b border-borderbg bg-cardbg/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-brand-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <i class="fa-solid font-bold text-white text-xl fa-microchip"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-brand-400 bg-clip-text text-transparent">PCA9685 Control Studio</h1>
+          <p class="text-xs text-slate-400">16-Channel I2C PWM Servo Driver Center</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Hardware Connection -->
+      <div class="flex items-center space-x-3">
+        <!-- Navigation Buttons -->
+        <nav class="hidden md:flex bg-darkbg/60 p-1 rounded-xl border border-borderbg text-xs font-medium">
+          <button onclick="switchTab('gui')" id="nav-gui" class="px-4 py-1.5 rounded-lg text-brand-400 bg-cardbg font-semibold shadow-sm transition">
+            <i class="fa-solid fa-sliders mr-1.5"></i> Control Studio
+          </button>
+          <button onclick="switchTab('wiring')" id="nav-wiring" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-plug mr-1.5"></i> Wiring Guide
+          </button>
+          <button onclick="switchTab('code')" id="nav-code" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-code mr-1.5"></i> Code Generators
+          </button>
+        </nav>
+
+        <!-- WebSerial Connect Button -->
+        <button id="connect-btn" onclick="toggleWebSerial()" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-900/30">
+          <i class="fa-solid fa-usb"></i>
+          <span id="connect-text">Connect WebSerial</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MOBILE NAVIGATION BAR -->
+  <div class="md:hidden flex border-b border-borderbg bg-cardbg px-2 py-1.5 justify-around text-xs font-medium">
+    <button onclick="switchTab('gui')" id="mob-nav-gui" class="px-3 py-1.5 rounded-lg text-brand-400 font-semibold bg-darkbg">
+      <i class="fa-solid fa-sliders mr-1"></i> GUI
+    </button>
+    <button onclick="switchTab('wiring')" id="mob-nav-wiring" class="px-3 py-1.5 rounded-lg text-slate-400">
+      <i class="fa-solid fa-plug mr-1"></i> Wiring
+    </button>
+    <button onclick="switchTab('code')" id="mob-nav-code" class="px-3 py-1.5 rounded-lg text-slate-400">
+      <i class="fa-solid fa-code mr-1"></i> Code
+    </button>
+  </div>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- SECTION 1: INTERACTIVE SERVO CONTROL STUDIO -->
+    <section id="tab-gui" class="space-y-6">
+      
+      <!-- MASTER CONTROL PANEL & GLOBAL ACTIONS -->
+      <div class="bg-cardbg rounded-2xl border border-borderbg p-4 sm:p-6 shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center">
+              <i class="fa-solid fa-gamepad text-brand-400 mr-2"></i> Master Controller & Sequence Engine
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Control all 8 servos simultaneously, run diagnostics, or capture keyframe sequences.</p>
+          </div>
+
+          <!-- Master Action Buttons -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="setAllServos(90)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition flex items-center">
+              <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Reset All (90°)
+            </button>
+            <button onclick="setAllServos(0)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition">
+              0°
+            </button>
+            <button onclick="setAllServos(180)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition">
+              180°
+            </button>
+
+            <div class="h-6 w-px bg-slate-700 mx-1 hidden sm:block"></div>
+
+            <button id="sweep-btn" onclick="toggleSweepTest()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
+              <i class="fa-solid fa-wave-square mr-1.5"></i> <span id="sweep-text">Sweep Test</span>
+            </button>
+
+            <button onclick="captureKeyframe()" class="bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
+              <i class="fa-solid fa-camera mr-1.5"></i> Save Pose
+            </button>
+          </div>
+        </div>
+
+        <!-- KEYFRAME SEQUENCE TIMELINE -->
+        <div id="sequence-container" class="mt-4 pt-4 border-t border-borderbg/60">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-slate-300 flex items-center">
+              <i class="fa-solid fa-film text-brand-400 mr-2"></i> Recorded Poses (<span id="pose-count">0</span>)
+            </span>
+            <div class="flex items-center space-x-2">
+              <label class="text-xs text-slate-400">Step Delay:</label>
+              <select id="sequence-delay" class="bg-darkbg text-xs border border-borderbg rounded-lg px-2 py-1 text-slate-300">
+                <option value="300">300ms</option>
+                <option value="600" selected>600ms</option>
+                <option value="1000">1000ms</option>
+                <option value="2000">2000ms</option>
+              </select>
+              <button id="play-seq-btn" onclick="playSequence()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded-lg transition disabled:opacity-50" disabled>
+                <i class="fa-solid fa-play mr-1"></i> Play Sequence
+              </button>
+              <button onclick="clearSequence()" class="bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 text-xs px-2 py-1 rounded-lg border border-borderbg transition">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Keyframe List Chips -->
+          <div id="keyframes-list" class="flex items-center space-x-2 overflow-x-auto py-2 min-h-[48px]">
+            <span class="text-xs text-slate-500 italic">No poses captured yet. Click "Save Pose" to record current servo positions.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8 SERVO CONTROLLER CARDS GRID -->
+      <div id="servo-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Rendered via JS dynamically for 8 channels -->
+      </div>
+
+      <!-- LIVE TERMINAL / LOG MONITOR -->
+      <div class="bg-cardbg rounded-2xl border border-borderbg p-4 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
+            <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Live I2C / Serial Data Output</h3>
+          </div>
+          <button onclick="clearTerminal()" class="text-xs text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-trash-can mr-1"></i> Clear Log
+          </button>
+        </div>
+        <div id="terminal-out" class="bg-darkbg/90 rounded-xl p-3 font-mono text-xs text-emerald-400 h-28 overflow-y-auto space-y-1 border border-borderbg/50 select-all">
+          <div class="text-slate-500">// PCA9685 Control Studio initialized. Outputting raw commands...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: INTERACTIVE WIRING DIAGRAM & PINOUT GUIDE -->
+    <section id="tab-wiring" class="hidden space-y-6">
+      
+      <!-- Power Warning Alert Box -->
+      <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-200">
+        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
+        <div class="text-xs leading-relaxed">
+          <strong class="font-semibold text-amber-300 text-sm block mb-1">CRITICAL POWER NOTICE: External Servo Power Required</strong>
+          <p>Standard servos (like SG90 or MG996R) can draw 500mA to 2A under load. <strong>Do NOT power 8 servos directly from the 5V output of an Arduino or ESP32 board!</strong> This will trigger brownout resets or burn out your board's regulator. Connect a dedicated external 5V/6V DC power supply (3A–5A minimum) to the PCA9685 <strong>V+ screw terminal block</strong>. Keep the Ground (GND) lines connected together (Common Ground).</p>
+        </div>
+      </div>
+
+      <!-- Visual Schematic Layout -->
+      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
+        <h3 class="text-base font-semibold text-white mb-4 flex items-center">
+          <i class="fa-solid fa-diagram-project text-brand-400 mr-2"></i> System Interconnection Architecture
+        </h3>
+
+        <!-- Interactive Visual Wiring Graphic -->
+        <div class="bg-darkbg rounded-xl p-6 border border-borderbg flex flex-col xl:flex-row items-center justify-between gap-8">
+          
+          <!-- Controller Card (ESP32 / Arduino Switchable View) -->
+          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-xs font-bold text-slate-300 flex items-center">
+                <i class="fa-solid fa-microchip text-brand-400 mr-1.5"></i> Microcontroller
+              </span>
+              <div class="space-x-1">
+                <button onclick="switchBoard('esp32')" id="btn-board-esp32" class="px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold">ESP32</button>
+                <button onclick="switchBoard('uno')" id="btn-board-uno" class="px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300">Arduino Uno</button>
+              </div>
+            </div>
+
+            <div id="board-diagram" class="space-y-2 text-xs font-mono">
+              <!-- Dynamically populated pin list -->
+            </div>
+          </div>
+
+          <!-- Connection Arrows -->
+          <div class="flex xl:flex-col items-center justify-center text-slate-500 text-xs font-mono space-x-2 xl:space-x-0 xl:space-y-2">
+            <span class="text-brand-400 font-bold">I2C BUS</span>
+            <i class="fa-solid fa-arrow-right-long text-xl hidden xl:block"></i>
+            <i class="fa-solid fa-arrow-down-long text-xl xl:hidden"></i>
+            <span class="text-slate-400">SDA + SCL</span>
+          </div>
+
+          <!-- PCA9685 Module Visual -->
+          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-blue-500/30">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-xs font-bold text-blue-400 flex items-center">
+                <i class="fa-solid fa-border-all mr-1.5"></i> PCA9685 Module
+              </span>
+              <span class="text-[10px] bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded border border-blue-700">Addr: 0x40</span>
+            </div>
+
+            <div class="space-y-2 text-xs font-mono text-slate-300">
+              <div class="flex justify-between bg-darkbg p-1.5 rounded">
+                <span class="text-amber-400">VCC (Logic)</span>
+                <span>-> 3.3V / 5V MCU</span>
+              </div>
+              <div class="flex justify-between bg-darkbg p-1.5 rounded">
+                <span class="text-slate-400">GND</span>
+                <span>-> Common Ground</span>
+              </div>
+              <div class="flex justify-between bg-darkbg p-1.5 rounded">
+                <span class="text-cyan-400">SDA</span>
+                <span id="sda-pin-text">-> GPIO 21 (ESP32)</span>
+              </div>
+              <div class="flex justify-between bg-darkbg p-1.5 rounded">
+                <span class="text-emerald-400">SCL</span>
+                <span id="scl-pin-text">-> GPIO 22 (ESP32)</span>
+              </div>
+              <div class="flex justify-between bg-rose-950/60 p-1.5 rounded border border-rose-800/50">
+                <span class="text-rose-400 font-bold">V+ Screw Terminal</span>
+                <span class="text-rose-300 font-bold">-> Ext 5V-6V PSU (+)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servos Output -->
+          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-slate-700">
+            <span class="text-xs font-bold text-slate-300 flex items-center mb-3">
+              <i class="fa-solid fa-fan text-amber-400 mr-1.5"></i> 8 Servos Connected
+            </span>
+            <div class="space-y-1.5 text-xs font-mono">
+              <div class="flex items-center justify-between bg-darkbg p-1.5 rounded text-slate-300">
+                <span>Ch 0 - Ch 7 Pins</span>
+                <span class="text-[10px] text-slate-400">[ Yellow | Red | Brown ]</span>
+              </div>
+              <div class="text-[11px] text-slate-400 pt-1 space-y-0.5">
+                <div><span class="text-amber-400 font-semibold">Signal (PWM):</span> Yellow / White</div>
+                <div><span class="text-rose-400 font-semibold">V+ Power:</span> Red Wire</div>
+                <div><span class="text-slate-400 font-semibold">Ground:</span> Brown / Black</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Detailed Pin Mapping Reference Table -->
+      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
+        <h3 class="text-base font-semibold text-white mb-4">Complete Pinout & Wire Mapping Table</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono text-slate-300">
+            <thead class="bg-darkbg text-slate-400 uppercase font-sans text-[11px]">
+              <tr>
+                <th class="p-3 rounded-l-lg">PCA9685 Pin</th>
+                <th class="p-3">Target Connection</th>
+                <th class="p-3">ESP32 Pin</th>
+                <th class="p-3">Arduino Uno Pin</th>
+                <th class="p-3 rounded-r-lg">Description / Notes</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-borderbg/50">
+              <tr>
+                <td class="p-3 font-semibold text-amber-400">VCC</td>
+                <td class="p-3">MCU Logic Power</td>
+                <td class="p-3">3.3V / 5V</td>
+                <td class="p-3">5V</td>
+                <td class="p-3 text-slate-400">Powers the internal chip logic of PCA9685.</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-slate-300">GND</td>
+                <td class="p-3">MCU Ground & PSU (-)</td>
+                <td class="p-3">GND</td>
+                <td class="p-3">GND</td>
+                <td class="p-3 text-slate-400">Must be connected to Common Ground of both MCU and Power Supply.</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-cyan-400">SDA</td>
+                <td class="p-3">I2C Data Line</td>
+                <td class="p-3">GPIO 21</td>
+                <td class="p-3">A4</td>
+                <td class="p-3 text-slate-400">Bi-directional I2C communication.</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-emerald-400">SCL</td>
+                <td class="p-3">I2C Clock Line</td>
+                <td class="p-3">GPIO 22</td>
+                <td class="p-3">A5</td>
+                <td class="p-3 text-slate-400">Synchronous timing clock signal.</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-rose-400">V+ (Screw Terminal)</td>
+                <td class="p-3">External Power Supply (+)</td>
+                <td class="p-3">N/A (External)</td>
+                <td class="p-3">N/A (External)</td>
+                <td class="p-3 text-rose-300">Connect 5V to 6V high-current external power block (+) here!</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold text-slate-300">GND (Screw Terminal)</td>
+                <td class="p-3">External Power Supply (-)</td>
+                <td class="p-3">N/A (External)</td>
+                <td class="p-3">N/A (External)</td>
+                <td class="p-3 text-slate-400">Ground wire from external power supply.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: COMPLETE CODE GENERATORS -->
+    <section id="tab-code" class="hidden space-y-6">
+      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-semibold text-white flex items-center">
+              <i class="fa-solid fa-code text-brand-400 mr-2"></i> Multi-Platform Firmware & Client Code
+            </h2>
+            <p class="text-xs text-slate-400">Select your preferred platform or upload the WebSerial firmware to control real hardware directly from this page.</p>
+          </div>
+          <button onclick="copyCode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl transition flex items-center self-start sm:self-auto">
+            <i class="fa-solid fa-copy mr-1.5"></i> Copy Code
+          </button>
+        </div>
+
+        <!-- Language Tabs -->
+        <div class="flex border-b border-borderbg space-x-2 text-xs font-semibold overflow-x-auto pb-px">
+          <button onclick="showCodeTab('webserial')" id="codetab-webserial" class="px-4 py-2 text-brand-400 border-b-2 border-brand-400 font-bold whitespace-nowrap">
+            <i class="fa-solid fa-bolt mr-1"></i> ESP32/Arduino (WebSerial Firmware)
+          </button>
+          <button onclick="showCodeTab('arduino')" id="codetab-arduino" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
+            <i class="fa-custom fa-c mr-1"></i> Arduino C++ (Adafruit Lib)
+          </button>
+          <button onclick="showCodeTab('python')" id="codetab-python" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
+            <i class="fa-brands fa-python mr-1"></i> Raspberry Pi (Python)
+          </button>
+          <button onclick="showCodeTab('micropython')" id="codetab-micropython" class="px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap">
+            <i class="fa-solid fa-microchip mr-1"></i> MicroPython
+          </button>
+        </div>
+
+        <!-- Code Block Viewer -->
+        <div class="relative mt-4">
+          <pre id="code-display" class="bg-darkbg p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto h-96 border border-borderbg leading-relaxed select-all">
+            <!-- Populated via JS -->
+          </pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-borderbg bg-cardbg/40 py-4 text-center text-xs text-slate-500 mt-auto">
+    PCA9685 16-Channel Servo Web Controller • Hardware-Ready Browser Interface
+  </footer>
+
+  <!-- JAVASCRIPT LOGIC ENGINE -->
+  <script>
+    // --- STATE MANAGEMENT ---
+    const SERVOS_COUNT = 8;
+    const DEFAULT_LABELS = ["Base / Pan", "Shoulder / Pitch", "Elbow / Lift", "Wrist / Roll", "Gripper / Claw", "Aux Servo 5", "Aux Servo 6", "Aux Servo 7"];
+    
+    // Pulse Width Limits (SG90 / Standard Servos: ~500us to 2150 at 50Hz)
+    const MIN_PULSE_US = 500;
+    const MAX_PULSE_US = 2150;
+    const PCA_FREQ = 50; // 50 Hz standard servo frequency
+
+    let servoState = [];
+    for (let i = 0; i < SERVOS_COUNT; i++) {
+      servoState.push({
+        id: i,
+        label: DEFAULT_LABELS[i] || `Servo ${i}`,
+        angle: 90,
+        enabled: true
+      });
+    }
+
+    let recordedPoses = [];
+    let isSweeping = false;
+    let sweepInterval = null;
+    let serialPort = null;
+    let serialWriter = null;
+
+    // --- INITIALIZATION ---
+    window.onload = function() {
+      renderServoCards();
+      renderBoardDiagram('esp32');
+      showCodeTab('webserial');
+      logTerminal("PCA9685 Studio Ready. Connect WebSerial or use standalone mode.");
+    };
+
+    // --- TAB SWITCHING LOGIC ---
+    function switchTab(tabId) {
+      document.getElementById('tab-gui').classList.add('hidden');
+      document.getElementById('tab-wiring').classList.add('hidden');
+      document.getElementById('tab-code').classList.add('hidden');
+
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+      // Update Nav Buttons Highlight
+      ['gui', 'wiring', 'code'].forEach(t => {
+        const btn = document.getElementById(`nav-${t}`);
+        const mobBtn = document.getElementById(`mob-nav-${t}`);
+        if (t === tabId) {
+          btn.className = "px-4 py-1.5 rounded-lg text-brand-400 bg-cardbg font-semibold shadow-sm transition";
+          mobBtn.className = "px-3 py-1.5 rounded-lg text-brand-400 font-semibold bg-darkbg";
+        } else {
+          btn.className = "px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition";
+          mobBtn.className = "px-3 py-1.5 rounded-lg text-slate-400";
+        }
+      });
+    }
+
+    // --- RENDER SERVO CONTROL CARDS ---
+    function renderServoCards() {
+      const grid = document.getElementById('servo-grid');
+      grid.innerHTML = '';
+
+      servoState.forEach((servo) => {
+        const pulse = angleToPulse(servo.angle);
+        const card = document.createElement('div');
+        card.className = `bg-cardbg rounded-2xl border ${servo.enabled ? 'border-borderbg' : 'border-slate-800 opacity-60'} p-4 shadow-lg transition-all duration-200 relative flex flex-col justify-between`;
+        card.id = `card-servo-${servo.id}`;
+
+        card.innerHTML = `
+          <div>
+            <!-- Header: Title & Toggle Switch -->
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono text-xs flex items-center justify-center font-bold">
+                  ${servo.id}
+                </span>
+                <input type="text" value="${servo.label}" onchange="updateLabel(${servo.id}, this.value)" 
+                  class="bg-transparent text-xs font-semibold text-slate-200 hover:bg-darkbg/50 focus:bg-darkbg px-1.5 py-0.5 rounded border border-transparent focus:border-borderbg focus:outline-none transition w-32 truncate" />
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" ${servo.enabled ? 'checked' : ''} onchange="toggleServoEnable(${servo.id}, this.checked)" class="sr-only peer">
+                <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
+              </label>
+            </div>
+
+            <!-- Circular / Value Visualizer -->
+            <div class="flex items-center justify-between bg-darkbg/60 p-3 rounded-xl border border-borderbg/40 my-3">
+              <div>
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Angle</span>
+                <span id="angle-display-${servo.id}" class="text-2xl font-bold font-mono text-brand-400">${servo.angle}°</span>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">PWM Pulse</span>
+                <span id="pulse-display-${servo.id}" class="text-xs font-mono text-slate-300">${pulse} µs</span>
+              </div>
+            </div>
+
+            <!-- Slider Control -->
+            <div class="space-y-1 mb-4">
+              <input type="range" min="0" max="180" value="${servo.angle}" ${servo.enabled ? '' : 'disabled'}
+                oninput="onSliderMove(${servo.id}, this.value)" 
+                id="slider-${servo.id}"
+                class="w-full" />
+              <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                <span>0°</span>
+                <span>90°</span>
+                <span>180°</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Adjustment & Presets Buttons -->
+          <div class="space-y-2 pt-2 border-t border-borderbg/40">
+            <div class="grid grid-cols-4 gap-1">
+              <button onclick="stepAngle(${servo.id}, -5)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">-5°</button>
+              <button onclick="stepAngle(${servo.id}, -1)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">-1°</button>
+              <button onclick="stepAngle(${servo.id}, 1)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">+1°</button>
+              <button onclick="stepAngle(${servo.id}, 5)" ${servo.enabled ? '' : 'disabled'} class="bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition">+5°</button>
+            </div>
+            <div class="grid grid-cols-3 gap-1">
+              <button onclick="setServoAngle(${servo.id}, 0)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">0° Min</button>
+              <button onclick="setServoAngle(${servo.id}, 90)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">90° Mid</button>
+              <button onclick="setServoAngle(${servo.id}, 180)" ${servo.enabled ? '' : 'disabled'} class="bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition">180° Max</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // --- SERVO CONTROL FUNCTIONS ---
+    function angleToPulse(angle) {
+      return Math.round(MIN_PULSE_US + (angle / 180) * (MAX_PULSE_US - MIN_PULSE_US));
+    }
+
+    function setServoAngle(id, angle, transmit = true) {
+      angle = Math.max(0, Math.min(180, parseInt(angle)));
+      servoState[id].angle = angle;
+
+      // Update UI elements directly for fast response
+      const angleDisp = document.getElementById(`angle-display-${id}`);
+      const pulseDisp = document.getElementById(`pulse-display-${id}`);
+      const slider = document.getElementById(`slider-${id}`);
+
+      if (angleDisp) angleDisp.innerText = `${angle}°`;
+      if (pulseDisp) pulseDisp.innerText = `${angleToPulse(angle)} µs`;
+      if (slider) slider.value = angle;
+
+      if (transmit && servoState[id].enabled) {
+        sendServoCommand(id, angle);
+      }
+    }
+
+    function onSliderMove(id, value) {
+      setServoAngle(id, value, true);
+    }
+
+    function stepAngle(id, delta) {
+      const current = servoState[id].angle;
+      setServoAngle(id, current + delta, true);
+    }
+
+    function toggleServoEnable(id, enabled) {
+      servoState[id].enabled = enabled;
+      renderServoCards();
+      logTerminal(`Servo ${id} (${servoState[id].label}) ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    }
+
+    function updateLabel(id, newLabel) {
+      servoState[id].label = newLabel || `Servo ${id}`;
+    }
+
+    function setAllServos(angle) {
+      servoState.forEach(s => {
+        if (s.enabled) setServoAngle(s.id, angle, true);
+      });
+      logTerminal(`Master Command: Set All Servos to ${angle}°`);
+    }
+
+    // --- SWEEP TEST FUNCTIONALITY ---
+    function toggleSweepTest() {
+      const btn = document.getElementById('sweep-btn');
+      const txt = document.getElementById('sweep-text');
+
+      if (isSweeping) {
+        clearInterval(sweepInterval);
+        isSweeping = false;
+        btn.className = "bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center";
+        txt.innerText = "Sweep Test";
+        logTerminal("Sweep Test Stopped.");
+      } else {
+        isSweeping = true;
+        btn.className = "bg-rose-600/30 hover:bg-rose-600/40 text-rose-300 border border-rose-500/50 text-xs px-3 py-2 rounded-xl transition flex items-center animate-pulse";
+        txt.innerText = "Stop Sweep";
+        logTerminal("Sweep Test Started (0° -> 180° -> 0°)");
+
+        let currentAngle = 0;
+        let direction = 5;
+
+        sweepInterval = setInterval(() => {
+          currentAngle += direction;
+          if (currentAngle >= 180 || currentAngle <= 0) {
+            direction *= -1;
+          }
+          servoState.forEach(s => {
+            if (s.enabled) setServoAngle(s.id, currentAngle, true);
+          });
+        }, 100);
+      }
+    }
+
+    // --- SEQUENCE PLAYER ENGINE ---
+    function captureKeyframe() {
+      const pose = servoState.map(s => ({ id: s.id, angle: s.angle }));
+      recordedPoses.push(pose);
+
+      updateSequenceUI();
+      logTerminal(`Captured Pose #${recordedPoses.length}`);
+    }
+
+    function updateSequenceUI() {
+      const list = document.getElementById('keyframes-list');
+      const count = document.getElementById('pose-count');
+      const playBtn = document.getElementById('play-seq-btn');
+
+      count.innerText = recordedPoses.length;
+      playBtn.disabled = recordedPoses.length === 0;
+
+      if (recordedPoses.length === 0) {
+        list.innerHTML = `<span class="text-xs text-slate-500 italic">No poses captured yet. Click "Save Pose" to record current servo positions.</span>`;
+        return;
+      }
+
+      list.innerHTML = '';
+      recordedPoses.forEach((pose, idx) => {
+        const chip = document.createElement('div');
+        chip.className = "bg-slate-800 border border-borderbg rounded-lg px-2.5 py-1 text-xs text-slate-300 flex items-center space-x-2 shrink-0";
+        chip.innerHTML = `
+          <span class="font-bold text-brand-400">#${idx + 1}</span>
+          <span class="text-[10px] text-slate-400">(${pose.map(p => p.angle + '°').slice(0,4).join(',')})</span>
+          <button onclick="deletePose(${idx})" class="text-slate-500 hover:text-rose-400 transition ml-1"><i class="fa-solid fa-xmark"></i></button>
+        `;
+        list.appendChild(chip);
+      });
+    }
+
+    function deletePose(index) {
+      recordedPoses.splice(index, 1);
+      updateSequenceUI();
+    }
+
+    function clearSequence() {
+      recordedPoses = [];
+      updateSequenceUI();
+      logTerminal("Cleared recorded pose sequence.");
+    }
+
+    async function playSequence() {
+      if (recordedPoses.length === 0) return;
+
+      const delayMs = parseInt(document.getElementById('sequence-delay').value);
+      logTerminal(`Playing Sequence (${recordedPoses.length} keyframes, ${delayMs}ms step delay)...`);
+
+      for (let i = 0; i < recordedPoses.length; i++) {
+        const pose = recordedPoses[i];
+        pose.forEach(item => {
+          if (servoState[item.id].enabled) {
+            setServoAngle(item.id, item.angle, true);
+          }
+        });
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+      logTerminal("Sequence Playback Complete.");
+    }
+
+    // --- HARDWARE WEBSERIAL INTEGRATION ---
+    async function toggleWebSerial() {
+      if (!("serial" in navigator)) {
+        alert("WebSerial API is not supported in this browser. Please use Google Chrome, MS Edge, or Opera.");
+        return;
+      }
+
+      if (serialPort) {
+        // Disconnect
+        try {
+          if (serialWriter) serialWriter.releaseLock();
+          await serialPort.close();
+        } catch (e) {
+          console.error(e);
+        }
+        serialPort = null;
+        serialWriter = null;
+        updateSerialUI(false);
+        logTerminal("Disconnected from Hardware Serial Port.");
+      } else {
+        // Connect
+        try {
+          serialPort = await navigator.serial.requestPort();
+          await serialPort.open({ baudRate: 115200 });
+          serialWriter = serialPort.writable.getWriter();
+          updateSerialUI(true);
+          logTerminal("Connected to WebSerial hardware target (115200 baud).");
+        } catch (err) {
+          logTerminal(`WebSerial Connection Error: ${err.message}`);
+        }
+      }
+    }
+
+    function updateSerialUI(connected) {
+      const btn = document.getElementById('connect-btn');
+      const text = document.getElementById('connect-text');
+
+      if (connected) {
+        btn.className = "flex items-center space-x-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-rose-900/30";
+        text.innerText = "Disconnect Serial";
+      } else {
+        btn.className = "flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-900/30";
+        text.innerText = "Connect WebSerial";
+      }
+    }
+
+    async function sendServoCommand(channel, angle) {
+      const pulse = angleToPulse(angle);
+      const cmdStr = `s ${channel} ${angle}\n`;
+
+      logTerminal(`TX -> Channel [${channel}]: ${angle}° (${pulse}µs)`);
+
+      if (serialWriter) {
+        try {
+          const encoder = new TextEncoder();
+          await serialWriter.write(encoder.encode(cmdStr));
+        } catch (err) {
+          logTerminal(`TX Error: ${err.message}`);
+        }
+      }
+    }
+
+    // --- TERMINAL LOGGING ---
+    function logTerminal(message) {
+      const term = document.getElementById('terminal-out');
+      const timeStr = new Date().toLocaleTimeString().split(' ')[0];
+      const entry = document.createElement('div');
+      entry.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> ${message}`;
+      term.appendChild(entry);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function clearTerminal() {
+      document.getElementById('terminal-out').innerHTML = `<div class="text-slate-500">// Terminal cleared. Outputting raw commands...</div>`;
+    }
+
+    // --- WIRING DIAGRAM SWITCHER ---
+    function switchBoard(type) {
+      const btnEsp = document.getElementById('btn-board-esp32');
+      const btnUno = document.getElementById('btn-board-uno');
+
+      if (type === 'esp32') {
+        btnEsp.className = "px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold";
+        btnUno.className = "px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300";
+        renderBoardDiagram('esp32');
+      } else {
+        btnUno.className = "px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold";
+        btnEsp.className = "px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300";
+        renderBoardDiagram('uno');
+      }
+    }
+
+    function renderBoardDiagram(board) {
+      const diag = document.getElementById('board-diagram');
+      const sdaText = document.getElementById('sda-pin-text');
+      const sclText = document.getElementById('scl-pin-text');
+
+      if (board === 'esp32') {
+        sdaText.innerText = "-> GPIO 21 (ESP32)";
+        sclText.innerText = "-> GPIO 22 (ESP32)";
+        diag.innerHTML = `
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-amber-400">3.3V / VIN</span><span>3.3V Logic Power</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-slate-400">GND</span><span>Common Ground</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-cyan-400">GPIO 21</span><span>SDA Line</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-emerald-400">GPIO 22</span><span>SCL Line</span></div>
+        `;
+      } else {
+        sdaText.innerText = "-> Pin A4 (Arduino Uno)";
+        sclText.innerText = "-> Pin A5 (Arduino Uno)";
+        diag.innerHTML = `
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-amber-400">5V</span><span>5V Logic Power</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-slate-400">GND</span><span>Common Ground</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-cyan-400">Pin A4</span><span>SDA Line</span></div>
+          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-emerald-400">Pin A5</span><span>SCL Line</span></div>
+        `;
+      }
+    }
+
+    // --- CODE GENERATOR TEMPLATES ---
+    const CODE_TEMPLATES = {
+      webserial: `/*
+ * PCA9685 WebSerial Control Firmware (ESP32 / Arduino)
+ * Receives serial commands from Web GUI (e.g. "s 0 90\\n")
+ * Library Required: Adafruit PWM Servo Driver Library
+ */
+
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+// Called with default I2C address 0x40
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+#define SERVOMIN  125 // Minimum pulse length count out of 4096 (~500 us)
+#define SERVOMAX  625 // Maximum pulse length count out of 4096 (~2500 us)
+#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("PCA9685 WebSerial Servo Controller Starting...");
+
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);
+
+  delay(10);
+}
+
+// Convert angle (0 to 180 degrees) to PCA9685 tick value (0..4095)
+int angleToTicks(int angle) {
+  return map(angle, 0, 180, SERVOMIN, SERVOMAX);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\\n');
+    input.trim();
+    
+    // Command format: "s <channel> <angle>"
+    if (input.startsWith("s ")) {
+      int firstSpace = input.indexOf(' ');
+      int secondSpace = input.indexOf(' ', firstSpace + 1);
+      
+      if (firstSpace != -1 && secondSpace != -1) {
+        int channel = input.substring(firstSpace + 1, secondSpace).toInt();
+        int angle = input.substring(secondSpace + 1).toInt();
+        
+        if (channel >= 0 && channel <= 15 && angle >= 0 && angle <= 180) {
+          int ticks = angleToTicks(angle);
+          pwm.setPWM(channel, 0, ticks);
+          Serial.print("OK: Servo ");
+          Serial.print(channel);
+          Serial.print(" set to ");
+          Serial.println(angle);
+        }
+      }
+    }
+  }
+}`,
+
+      arduino: `/*
+ * Standalone PCA9685 8-Servo Control Code (Arduino / ESP32)
+ * Library: Adafruit PWM Servo Driver Library
+ */
+
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
+
+#define SERVOMIN  125 // 0 degrees
+#define SERVOMAX  625 // 180 degrees
+
+void setServoAngle(uint8_t n, uint8_t angle) {
+  uint16_t pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+  pwm.setPWM(n, 0, pulse);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pwm.begin();
+  pwm.setPWMFreq(50); // Standard Servo Frequency 50Hz
+  
+  // Set initial pose (All 90 degrees)
+  for(int i = 0; i < 8; i++) {
+    setServoAngle(i, 90);
+  }
+}
+
+void loop() {
+  // Example Sweep for 8 Servos
+  for (int angle = 0; angle <= 180; angle += 5) {
+    for (int i = 0; i < 8; i++) {
+      setServoAngle(i, angle);
+    }
+    delay(20);
+  }
+  
+  for (int angle = 180; angle >= 0; angle -= 5) {
+    for (int i = 0; i < 8; i++) {
+      setServoAngle(i, angle);
+    }
+    delay(20);
+  }
+}`,
+
+      python: `# Raspberry Pi Python (CircuitPython PCA9685 Driver)
+# Install dependencies:
+# pip3 install adafruit-circuitpython-pca9685 adafruit-circuitpython-servo
+
+import time
+import board
+import busio
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo
+
+# Initialize I2C Bus
+i2c = busio.I2C(board.SCL, board.SDA)
+
+# Initialize PCA9685 Module
+pca = PCA9685(i2c)
+pca.frequency = 50 # 50Hz Standard Servo Frequency
+
+# Create array of 8 servo objects with custom pulse width range
+servos = []
+for i in range(8):
+    s = servo.Servo(pca.channels[i], min_pulse=500, max_pulse=2500)
+    servos.append(s)
+
+print("Sweeping 8 Servos on PCA9685...")
+
+try:
+    while True:
+        # Move to 0 Degrees
+        for s in servos:
+            s.angle = 0
+        time.sleep(1)
+
+        # Move to 90 Degrees
+        for s in servos:
+            s.angle = 90
+        time.sleep(1)
+
+        # Move to 180 Degrees
+        for s in servos:
+            s.angle = 180
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    pca.deinit()
+    print("\nPCA9685 Controller Terminated.")`,
+
+      micropython: `# MicroPython PCA9685 Driver Example
+# Requires microPython PCA9685 library module (pca9685.py)
+
+from machine import Pin, I2C
+import time
+
+class PCA9685:
+    def __init__(self, i2c, address=0x40):
+        self.i2c = i2c
+        self.address = address
+        self.reset()
+        
+    def reset(self):
+        self.i2c.writeto_mem(self.address, 0x00, b'\x00')
+        
+    def set_freq(self, freq):
+        prescale = int(25000000.0 / (4096 * freq) - 0.5)
+        oldmode = self.i2c.readfrom_mem(self.address, 0x00, 1)[0]
+        newmode = (oldmode & 0x7F) | 0x10
+        self.i2c.writeto_mem(self.address, 0x00, bytes([newmode]))
+        self.i2c.writeto_mem(self.address, 0xFE, bytes([prescale]))
+        self.i2c.writeto_mem(self.address, 0x00, bytes([oldmode]))
+        time.sleep_ms(5)
+        self.i2c.writeto_mem(self.address, 0x00, bytes([oldmode | 0xa1]))
+
+    def set_pwm(self, channel, on, off):
+        data = bytearray([0x06 + 4 * channel, on & 0xFF, on >> 8, off & 0xFF, off >> 8])
+        self.i2c.writeto(self.address, data)
+
+    def set_angle(self, channel, angle):
+        # Map 0-180 deg to tick counts (approx 102-512)
+        ticks = int(102 + (angle / 180.0) * (512 - 102))
+        self.set_pwm(channel, 0, ticks)
+
+# ESP32 MicroPython Pin Config (SDA=21, SCL=22)
+i2c = I2C(0, scl=Pin(22), sda=Pin(21), freq=100000)
+pca = PCA9685(i2c)
+pca.set_freq(50)
+
+print("MicroPython PCA9685 Ready.")
+while True:
+    for angle in [0, 90, 180]:
+        for ch in range(8):
+            pca.set_angle(ch, angle)
+        time.sleep(1)`
+    };
+
+    let activeCodeTab = 'webserial';
+
+    function showCodeTab(tab) {
+      activeCodeTab = tab;
+      const display = document.getElementById('code-display');
+      display.textContent = CODE_TEMPLATES[tab];
+
+      ['webserial', 'arduino', 'python', 'micropython'].forEach(t => {
+        const btn = document.getElementById(`codetab-${t}`);
+        if (t === tab) {
+          btn.className = "px-4 py-2 text-brand-400 border-b-2 border-brand-400 font-bold whitespace-nowrap";
+        } else {
+          btn.className = "px-4 py-2 text-slate-400 hover:text-slate-200 whitespace-nowrap";
+        }
+      });
+    }
+
+    function copyCode() {
+      const codeText = CODE_TEMPLATES[activeCodeTab];
+      
+      // Fallback/Standard Copy for iframe environment
+      const textarea = document.createElement('textarea');
+      textarea.value = codeText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      logTerminal("Code copied to clipboard!");
+      alert("Code copied to clipboard!");
+    }
+  </script>
+</body>
+</html>
