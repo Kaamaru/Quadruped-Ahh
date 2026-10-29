@@ -1,0 +1,56 @@
+{
+  "name": "quadru_settings",
+  "version": 1,
+  "servomin": 125,
+  "servomax": 540,
+  "servos": [
+    {
+      "pin": 0,
+      "label": "Base / Pan",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 1,
+      "label": "Shoulder / Pitch",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 2,
+      "label": "Elbow / Lift",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 3,
+      "label": "Wrist / Roll",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 4,
+      "label": "Gripper / Claw",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 5,
+      "label": "Aux Servo 5",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 6,
+      "label": "Aux Servo 6",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 7,
+      "label": "Aux Servo 7",
+      "min": 0,
+      "max": 180
+    }
+  ]
+}

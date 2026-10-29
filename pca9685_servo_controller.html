@@ -1,1089 +1,1658 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PCA9685 16-Channel I2C Servo Controller & Guide</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              900: '#0c4a6e',
-            },
-            darkbg: '#0f172a',
-            cardbg: '#1e293b',
-            borderbg: '#334155'
-          }
-        }
-      }
-    }
-  </script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts: Inter & JetBrains Mono -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
-    /* Custom Range Slider styling */
-    input[type=range] {
-      -webkit-appearance: none;
-      background: transparent;
-    }
-    input[type=range]:focus { outline: none; }
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 8px;
-      cursor: pointer;
-      background: #334155;
-      border-radius: 4px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      height: 20px;
-      width: 20px;
-      border-radius: 50%;
-      background: #0ea5e9;
-      cursor: pointer;
-      -webkit-appearance: none;
-      margin-top: -6px;
-      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
-      transition: transform 0.1s ease, background-color 0.1s ease;
-    }
-    input[type=range]::-webkit-slider-thumb:hover {
-      transform: scale(1.15);
-      background: #38bdf8;
-    }
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCA9685 Servo Control Studio</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--mute:#94a3b8;--dim:#64748b;--brand:#38bdf8;--brand2:#0ea5e9;--green:#059669;--amber:#fbbf24;--rose:#fb7185;--ink:#0b1220}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;min-height:100vh;display:flex;flex-direction:column}
+code,pre,.mono,input[type=number]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+.hidden{display:none!important}
+.mute{color:var(--mute)}.dim{color:var(--dim)}.brand{color:var(--brand)}.amber{color:var(--amber)}.rose{color:var(--rose)}.green{color:#34d399}
+.sm{font-size:12px}.xs{font-size:11px}
+header{position:sticky;top:0;z-index:50;background:rgba(30,41,59,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+.bar{max-width:1280px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:20px}
+.logo h1{margin:0;font-size:17px}
+.logo p{margin:0;font-size:12px;color:var(--mute)}
+nav{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+nav button{background:none;border:0;border-radius:8px;padding:7px 14px;color:var(--mute);font-size:12px;font-weight:500}
+nav button:hover{color:#fff}
+nav button.active{background:var(--card);color:var(--brand);font-weight:600}
+main{flex:1;width:100%;max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+section{display:flex;flex-direction:column;gap:20px}
+footer{border-top:1px solid var(--line);padding:14px;text-align:center;font-size:12px;color:var(--dim)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+.card h2,.card h3{margin:0}
+.card h2{font-size:15px}.card h3{font-size:14px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);background:#334155;color:#fff;font-size:12px;padding:8px 12px;transition:background .15s}
+.btn:hover:not(:disabled){background:#475569}
+.btn-brand{background:#0284c7;border-color:#0ea5e9}.btn-brand:hover:not(:disabled){background:#0ea5e9}
+.btn-green{background:#059669;border-color:#10b981}.btn-green:hover:not(:disabled){background:#10b981}
+.btn-rose{background:#e11d48;border-color:#fb7185}.btn-rose:hover:not(:disabled){background:#f43f5e}
+.btn-amber{background:rgba(217,119,6,.2);border-color:rgba(245,158,11,.45);color:#fcd34d}.btn-amber:hover:not(:disabled){background:rgba(217,119,6,.35)}
+.btn-ghost{background:var(--bg);color:var(--text)}
+.btn-sm{padding:5px 9px;font-size:11px;border-radius:8px}
+.icon-btn{background:none;border:0;color:var(--dim);padding:2px 4px;font-size:13px}.icon-btn:hover:not(:disabled){color:var(--rose)}
+select,input[type=text],input[type=number]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px}
+input:focus,select:focus{outline:none;border-color:var(--brand2)}
+/* servo grid */
+.grid-servos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.servo-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.servo-card.off{opacity:.55}
+.sc-head{display:flex;align-items:center;gap:6px}
+.pin-sel{color:var(--brand);font-weight:700;background:#0f172a;border-color:#475569;flex:none}
+.lbl{flex:1;min-width:0;background:transparent;border-color:transparent;font-weight:600}
+.lbl:hover{background:rgba(15,23,42,.5)}
+.switch{position:relative;display:inline-block;width:32px;height:16px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch span{position:absolute;inset:0;background:#475569;border-radius:99px;transition:.15s}
+.switch span:before{content:"";position:absolute;width:12px;height:12px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--brand2)}
+.switch input:checked+span:before{transform:translateX(16px)}
+.readout{display:flex;justify-content:space-between;align-items:flex-end;background:rgba(15,23,42,.6);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px 12px}
+.readout .big{font-size:26px;font-weight:700;color:var(--brand)}
+.cap{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;display:block}
+.scale{display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
+.q4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.q3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.q4 button,.q3 button{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 0;font-size:11px;color:#cbd5e1}
+.q3 button{background:#1b2638;color:var(--mute);font-size:10px}
+.q4 button:hover:not(:disabled),.q3 button:hover:not(:disabled){background:#334155}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;width:100%;margin:6px 0}
+input[type=range]:focus{outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:8px;background:#334155;border-radius:4px}
+input[type=range]::-moz-range-track{height:8px;background:#334155;border-radius:4px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:20px;width:20px;margin-top:-6px;border-radius:50%;background:var(--brand2);box-shadow:0 0 10px rgba(14,165,233,.5)}
+input[type=range]::-moz-range-thumb{height:20px;width:20px;border:0;border-radius:50%;background:var(--brand2)}
+input[type=range]:disabled{opacity:.4}
+/* sequence */
+.seq-list{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;min-height:48px;align-items:center}
+.block{display:flex;align-items:center;gap:8px;border-radius:10px;padding:7px 10px;font-size:12px;cursor:grab;user-select:none;border:1px solid var(--line);background:#273449}
+.block:hover{background:#334155}
+.block.delay{background:rgba(120,53,15,.25);border-color:rgba(245,158,11,.35);color:#fde68a}
+.block.over{outline:2px solid var(--brand)}
+.block.dragging{opacity:.4}
+.block .grip{color:var(--dim)}
+.block b{color:var(--brand)}.block.delay b{color:var(--amber)}
+.block .x{background:none;border:0;color:var(--dim);padding:0 2px}.block .x:hover{color:var(--rose)}
+.term{background:rgba(15,23,42,.9);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px;font-size:12px;color:#34d399;height:112px;overflow-y:auto}
+.term div{margin-bottom:3px}
+.dot{width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block}
+/* modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.dialog{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.5);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;transition:max-width .15s}
+.dialog.wide{max-width:1080px}
+.d-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.d-head input{flex:1;min-width:0;font-size:14px;font-weight:600;background:transparent;border-color:transparent}
+.d-head input:hover,.d-head input:focus{background:var(--bg);border-color:var(--line)}
+.d-body{padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.d-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.d-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{background:var(--bg);border:0;padding:6px 12px;font-size:12px;color:var(--mute)}
+.seg button.on{background:#0284c7;color:#fff}
+.ed-grid{display:grid;gap:10px;grid-template-columns:1fr}
+.ed-grid.c4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.ed-grid.c4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.ed-grid.c4{grid-template-columns:1fr}}
+.ed-row{background:rgba(15,23,42,.6);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.ed-row.off{opacity:.5}
+.ed-row.changed{border-color:rgba(56,189,248,.6)}
+.ed-head{display:flex;align-items:center;gap:6px;font-size:12px;min-width:0}
+.ed-head .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pin{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--brand)}
+.ed-ctl{display:flex;align-items:center;gap:6px}
+.ed-ctl button{background:var(--bg);border:1px solid var(--line);border-radius:6px;width:26px;height:26px;padding:0;flex:none}
+.ed-ctl button:hover{background:#334155}
+.ed-num{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.ed-num input{width:68px}
+.chip{font-size:10px;background:rgba(14,165,233,.2);color:var(--brand);border-radius:99px;padding:1px 7px}
+.toggle-pill{display:inline-block;position:relative;width:28px;height:16px;border-radius:99px;background:#475569;margin-right:4px}
+.toggle-pill:after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:.15s}
+.toggle-pill.on{background:var(--brand2)}.toggle-pill.on:after{left:14px}
+/* settings & tables */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px;color:var(--mute);font-weight:600;background:var(--bg)}
+td{padding:6px 8px;border-bottom:1px solid rgba(51,65,85,.5)}
+td input[type=number]{width:76px}
+td input[type=text]{width:100%;min-width:120px}
+.scroll-x{overflow-x:auto}
+pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12px;line-height:1.55;color:#cbd5e1;overflow:auto;height:380px;margin:0}
+.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:16px;padding:14px;color:#fde68a;font-size:12px;line-height:1.6}
+.note{font-size:12px;color:var(--mute);line-height:1.6}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
+.split{display:flex;gap:16px;flex-wrap:wrap}
+.split>*{flex:1 1 260px}
+.kv{display:flex;justify-content:space-between;gap:8px;background:var(--bg);padding:6px 8px;border-radius:6px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.stack{display:flex;flex-direction:column;gap:8px}
+.panel{background:rgba(30,41,59,.8);border:1px solid #475569;border-radius:12px;padding:14px}
+.hr{border-top:1px solid rgba(51,65,85,.6);margin:4px 0}
+.group{background:rgba(15,23,42,.45);border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:10px 12px}
+.group.saved{border-left-color:#10b981}.group.unsaved{border-left-color:#f59e0b}
+.group.active{box-shadow:0 0 0 1px rgba(56,189,248,.45)}
+.g-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.g-name{background:none;border:0;font-weight:600;font-size:13px;padding:3px 6px;border-radius:6px;color:var(--text)}
+.g-name:hover{background:rgba(51,65,85,.6)}
+.badge{font-size:11px;border-radius:99px;padding:2px 9px;font-weight:600}
+.badge.saved{background:rgba(16,185,129,.18);color:#34d399}
+.badge.unsaved{background:rgba(245,158,11,.18);color:#fbbf24}
+.g-menu{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.g-poses{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.block.playing{outline:2px solid #34d399;background:rgba(16,185,129,.2)}
+.seq-list.over-list{outline:2px dashed var(--brand);outline-offset:2px;border-radius:10px}
+.block input.rn,.g-head input.rn{width:140px;padding:3px 6px}
+.mini-btn{background:none;border:0;color:var(--dim);padding:0 3px;font-size:12px}.mini-btn:hover{color:var(--brand)}
+.seg button.on{background:#0284c7;color:#fff}
+.tabs-note{margin:0 0 10px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.studio{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.studio{grid-template-columns:1fr}}
+.bundle{background:rgba(15,23,42,.55);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:8px 10px}
+.bundle.unsaved{background:rgba(245,158,11,.07)}
+.bundle.saved{border-left-color:#10b981;background:rgba(16,185,129,.07)}
+.bundle.active{box-shadow:0 0 0 1px var(--brand2)}
+.b-head{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:26px}
+.b-name{font-weight:600;cursor:pointer;border-radius:6px;padding:1px 4px}
+.b-name:hover{background:rgba(148,163,184,.15)}
+.b-status{font-size:11px;font-weight:600}
+.b-status.ok{color:#34d399}.b-status.warn{color:var(--amber)}
+.arrow{background:none;border:0;color:var(--mute);padding:0 2px;font-size:13px}
+.b-menu{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.b-body{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rn{font-size:12px;font-weight:600;width:140px;padding:3px 6px}
+.dropzone{border:2px dashed var(--line);border-radius:10px;min-height:36px;min-width:140px;flex:1 1 140px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;padding:6px;text-align:center}
+.dropzone.over{border-color:var(--brand);color:var(--brand)}
+.sbox{border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5}
+.sbox.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4);color:#6ee7b7}
+.sbox.warn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fde68a}
+.sbox.info{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);color:#bae6fd}
+.badge{font-size:12px;font-weight:600;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.45);color:var(--brand);border-radius:99px;padding:5px 12px}
+.pg{display:flex;flex-direction:column;gap:20px}
+</style>
 </head>
-<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col">
+<body>
 
-  <!-- TOP HEADER / NAVBAR -->
-  <header class="border-b border-borderbg bg-cardbg/80 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-brand-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
-          <i class="fa-solid font-bold text-white text-xl fa-microchip"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-brand-400 bg-clip-text text-transparent">PCA9685 Control Studio</h1>
-          <p class="text-xs text-slate-400">16-Channel I2C PWM Servo Driver Center</p>
-        </div>
-      </div>
-
-      <!-- Navigation Tabs & Hardware Connection -->
-      <div class="flex items-center space-x-3">
-        <!-- Navigation Buttons -->
-        <nav class="hidden md:flex bg-darkbg/60 p-1 rounded-xl border border-borderbg text-xs font-medium">
-          <button onclick="switchTab('gui')" id="nav-gui" class="px-4 py-1.5 rounded-lg text-brand-400 bg-cardbg font-semibold shadow-sm transition">
-            <i class="fa-solid fa-sliders mr-1.5"></i> Control Studio
-          </button>
-          <button onclick="switchTab('wiring')" id="nav-wiring" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
-            <i class="fa-solid fa-plug mr-1.5"></i> Wiring Guide
-          </button>
-          <button onclick="switchTab('settings')" id="nav-settings" class="px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition">
-            <i class="fa-solid fa-gear mr-1.5"></i> Settings
-          </button>
-        </nav>
-
-        <!-- WebSerial Connect Button -->
-        <button id="connect-btn" onclick="toggleWebSerial()" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-900/30">
-          <i class="fa-solid fa-usb"></i>
-          <span id="connect-text">Connect WebSerial</span>
-        </button>
-      </div>
+<header>
+  <div class="bar">
+    <div class="logo">
+      <div class="logo-mark">⚙</div>
+      <div><h1>PCA9685 Control Studio</h1><p>16-Channel I2C PWM Servo Driver</p></div>
     </div>
-  </header>
-
-  <!-- MOBILE NAVIGATION BAR -->
-  <div class="md:hidden flex border-b border-borderbg bg-cardbg px-2 py-1.5 justify-around text-xs font-medium">
-    <button onclick="switchTab('gui')" id="mob-nav-gui" class="px-3 py-1.5 rounded-lg text-brand-400 font-semibold bg-darkbg">
-      <i class="fa-solid fa-sliders mr-1"></i> GUI
-    </button>
-    <button onclick="switchTab('wiring')" id="mob-nav-wiring" class="px-3 py-1.5 rounded-lg text-slate-400">
-      <i class="fa-solid fa-plug mr-1"></i> Wiring
-    </button>
-    <button onclick="switchTab('settings')" id="mob-nav-settings" class="px-3 py-1.5 rounded-lg text-slate-400">
-      <i class="fa-solid fa-gear mr-1"></i> Settings
-    </button>
+    <div class="row">
+      <span id="cfg-chip" class="chip" title="Active servo config" style="font-size:11px;padding:4px 10px"></span>
+      <nav>
+        <button id="nav-gui" class="active" onclick="switchTab('gui')">Control Studio</button>
+        <button id="nav-prepare" onclick="switchTab('prepare')">Prepare</button>
+        <button id="nav-settings" onclick="switchTab('settings')">Settings</button>
+      </nav>
+      <span id="device-badge" class="badge hidden"></span>
+      <button id="connect-btn" class="btn btn-green" onclick="toggleWebSerial()"><span id="connect-text">Connect WebSerial</span></button>
+    </div>
   </div>
+</header>
 
-  <!-- MAIN CONTENT CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+<main>
 
-    <!-- SECTION 1: INTERACTIVE SERVO CONTROL STUDIO -->
-    <section id="tab-gui" class="space-y-6">
-      
-      <!-- MASTER CONTROL PANEL & GLOBAL ACTIONS -->
-      <div class="bg-cardbg rounded-2xl border border-borderbg p-4 sm:p-6 shadow-xl">
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <h2 class="text-base font-semibold text-white flex items-center">
-              <i class="fa-solid fa-gamepad text-brand-400 mr-2"></i> Master Controller & Sequence Engine
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Control all servos at once, run diagnostics, or build sequences from poses and delays.</p>
-          </div>
-
-          <!-- Master Action Buttons -->
-          <div class="flex flex-wrap items-center gap-2">
-            <button onclick="setAllServos(90)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition flex items-center">
-              <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Reset All (90°)
-            </button>
-            <button onclick="setAllServos(0)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition">
-              0°
-            </button>
-            <button onclick="setAllServos(180)" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-xl border border-slate-600 transition">
-              180°
-            </button>
-
-            <div class="h-6 w-px bg-slate-700 mx-1 hidden sm:block"></div>
-
-            <button id="sweep-btn" onclick="toggleSweepTest()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
-              <i class="fa-solid fa-wave-square mr-1.5"></i> <span id="sweep-text">Sweep Test</span>
-            </button>
-
-            <button onclick="captureKeyframe()" class="bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
-              <i class="fa-solid fa-camera mr-1.5"></i> Save Pose
-            </button>
-            <button onclick="addDelayBlock()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center">
-              <i class="fa-solid fa-hourglass-half mr-1.5"></i> Delay
-            </button>
-          </div>
-        </div>
-
-                <!-- SEQUENCE BUILDER (drag blocks to reorder, click to edit) -->
-        <div id="sequence-container" class="mt-4 pt-4 border-t border-borderbg/60">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <span class="text-xs font-semibold text-slate-300 flex items-center">
-              <i class="fa-solid fa-film text-brand-400 mr-2"></i> Sequence (<span id="pose-count">0</span> blocks)
-              <span class="ml-3 font-normal text-slate-500 hidden sm:inline">Drag to reorder · click a block to edit</span>
-            </span>
-            <div class="flex flex-wrap items-center gap-2">
-              <label class="text-xs text-slate-400" title="Pause inserted between two poses that follow each other directly">Pose gap:</label>
-              <select id="sequence-delay" class="bg-darkbg text-xs border border-borderbg rounded-lg px-2 py-1 text-slate-300">
-                <option value="0">0ms</option>
-                <option value="300">300ms</option>
-                <option value="600" selected>600ms</option>
-                <option value="1000">1000ms</option>
-                <option value="2000">2000ms</option>
-              </select>
-              <button id="play-seq-btn" onclick="playSequence()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded-lg transition disabled:opacity-50" disabled>
-                <i class="fa-solid fa-play mr-1"></i> Play Sequence
-              </button>
-              <button onclick="clearSequence()" class="bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 text-xs px-2 py-1 rounded-lg border border-borderbg transition">
-                Clear
-              </button>
-            </div>
-          </div>
-          <div id="keyframes-list" class="flex flex-wrap items-center gap-2 py-2 min-h-[48px]"></div>
-        </div>
+<!-- ===== CONTROL STUDIO ===== -->
+<section id="tab-gui">
+  <div class="card">
+    <div class="row between" style="gap:14px">
+      <div>
+        <h2>Master Controller</h2>
+        <p class="sm mute" style="margin:2px 0 0">Control all servos at once or run a diagnostic sweep (servo limits are always respected).</p>
       </div>
-
-      <!-- SERVO GRID HEADER + DYNAMIC SERVO CARDS -->
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-slate-200">Servos <span class="text-slate-500 font-normal">(<span id="servo-count">8</span>/16 pins used)</span></h3>
-        <button id="add-servo-btn" onclick="addServo()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-3 py-2 rounded-xl transition flex items-center disabled:opacity-40 disabled:cursor-not-allowed">
-          <i class="fa-solid fa-plus mr-1.5"></i> Add Servo
-        </button>
+      <div class="row">
+        <button class="btn" onclick="setAllServos(90)">Reset All (90°)</button>
+        <button class="btn" onclick="setAllServos(0)">0°</button>
+        <button class="btn" onclick="setAllServos(180)">180°</button>
+        <button id="sweep-btn" class="btn btn-amber" onclick="toggleSweepTest()"><span id="sweep-text">Sweep Test</span></button>
       </div>
-      <div id="servo-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
-
-      <!-- LIVE TERMINAL / LOG MONITOR -->
-      <div class="bg-cardbg rounded-2xl border border-borderbg p-4 shadow-xl">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center space-x-2">
-            <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></div>
-            <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Live I2C / Serial Data Output</h3>
-          </div>
-          <button onclick="clearTerminal()" class="text-xs text-slate-400 hover:text-white transition">
-            <i class="fa-solid fa-trash-can mr-1"></i> Clear Log
-          </button>
-        </div>
-        <div id="terminal-out" class="bg-darkbg/90 rounded-xl p-3 font-mono text-xs text-emerald-400 h-28 overflow-y-auto space-y-1 border border-borderbg/50 select-all">
-          <div class="text-slate-500">// PCA9685 Control Studio initialized. Outputting raw commands...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 2: INTERACTIVE WIRING DIAGRAM & PINOUT GUIDE -->
-    <section id="tab-wiring" class="hidden space-y-6">
-      
-      <!-- Power Warning Alert Box -->
-      <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3 text-amber-200">
-        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
-        <div class="text-xs leading-relaxed">
-          <strong class="font-semibold text-amber-300 text-sm block mb-1">CRITICAL POWER NOTICE: External Servo Power Required</strong>
-          <p>Standard servos (like SG90 or MG996R) can draw 500mA to 2A under load. <strong>Do NOT power multiple servos directly from the 5V output of an Arduino or ESP32 board!</strong> This will trigger brownout resets or burn out your board's regulator. Connect a dedicated external 5V/6V DC power supply (3A–5A minimum) to the PCA9685 <strong>V+ screw terminal block</strong>. Keep the Ground (GND) lines connected together (Common Ground).</p>
-        </div>
-      </div>
-
-      <!-- Visual Schematic Layout -->
-      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
-        <h3 class="text-base font-semibold text-white mb-4 flex items-center">
-          <i class="fa-solid fa-diagram-project text-brand-400 mr-2"></i> System Interconnection Architecture
-        </h3>
-
-        <!-- Interactive Visual Wiring Graphic -->
-        <div class="bg-darkbg rounded-xl p-6 border border-borderbg flex flex-col xl:flex-row items-center justify-between gap-8">
-          
-          <!-- Controller Card (ESP32 / Arduino Switchable View) -->
-          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-slate-700 relative">
-            <div class="flex justify-between items-center mb-3">
-              <span class="text-xs font-bold text-slate-300 flex items-center">
-                <i class="fa-solid fa-microchip text-brand-400 mr-1.5"></i> Microcontroller
-              </span>
-              <div class="space-x-1">
-                <button onclick="switchBoard('esp32')" id="btn-board-esp32" class="px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold">ESP32</button>
-                <button onclick="switchBoard('uno')" id="btn-board-uno" class="px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300">Arduino Uno</button>
-              </div>
-            </div>
-
-            <div id="board-diagram" class="space-y-2 text-xs font-mono">
-              <!-- Dynamically populated pin list -->
-            </div>
-          </div>
-
-          <!-- Connection Arrows -->
-          <div class="flex xl:flex-col items-center justify-center text-slate-500 text-xs font-mono space-x-2 xl:space-x-0 xl:space-y-2">
-            <span class="text-brand-400 font-bold">I2C BUS</span>
-            <i class="fa-solid fa-arrow-right-long text-xl hidden xl:block"></i>
-            <i class="fa-solid fa-arrow-down-long text-xl xl:hidden"></i>
-            <span class="text-slate-400">SDA + SCL</span>
-          </div>
-
-          <!-- PCA9685 Module Visual -->
-          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-blue-500/30">
-            <div class="flex justify-between items-center mb-3">
-              <span class="text-xs font-bold text-blue-400 flex items-center">
-                <i class="fa-solid fa-border-all mr-1.5"></i> PCA9685 Module
-              </span>
-              <span class="text-[10px] bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded border border-blue-700">Addr: 0x40</span>
-            </div>
-
-            <div class="space-y-2 text-xs font-mono text-slate-300">
-              <div class="flex justify-between bg-darkbg p-1.5 rounded">
-                <span class="text-amber-400">VCC (Logic)</span>
-                <span>-> 3.3V / 5V MCU</span>
-              </div>
-              <div class="flex justify-between bg-darkbg p-1.5 rounded">
-                <span class="text-slate-400">GND</span>
-                <span>-> Common Ground</span>
-              </div>
-              <div class="flex justify-between bg-darkbg p-1.5 rounded">
-                <span class="text-cyan-400">SDA</span>
-                <span id="sda-pin-text">-> GPIO 21 (ESP32)</span>
-              </div>
-              <div class="flex justify-between bg-darkbg p-1.5 rounded">
-                <span class="text-emerald-400">SCL</span>
-                <span id="scl-pin-text">-> GPIO 22 (ESP32)</span>
-              </div>
-              <div class="flex justify-between bg-rose-950/60 p-1.5 rounded border border-rose-800/50">
-                <span class="text-rose-400 font-bold">V+ Screw Terminal</span>
-                <span class="text-rose-300 font-bold">-> Ext 5V-6V PSU (+)</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Servos Output -->
-          <div class="w-full xl:w-1/3 bg-slate-800/80 rounded-xl p-4 border border-slate-700">
-            <span class="text-xs font-bold text-slate-300 flex items-center mb-3">
-              <i class="fa-solid fa-fan text-amber-400 mr-1.5"></i> Servos Connected (up to 16)
-            </span>
-            <div class="space-y-1.5 text-xs font-mono">
-              <div class="flex items-center justify-between bg-darkbg p-1.5 rounded text-slate-300">
-                <span>Channels 0 - 15 (as assigned)</span>
-                <span class="text-[10px] text-slate-400">[ Yellow | Red | Brown ]</span>
-              </div>
-              <div class="text-[11px] text-slate-400 pt-1 space-y-0.5">
-                <div><span class="text-amber-400 font-semibold">Signal (PWM):</span> Yellow / White</div>
-                <div><span class="text-rose-400 font-semibold">V+ Power:</span> Red Wire</div>
-                <div><span class="text-slate-400 font-semibold">Ground:</span> Brown / Black</div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Detailed Pin Mapping Reference Table -->
-      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
-        <h3 class="text-base font-semibold text-white mb-4">Complete Pinout & Wire Mapping Table</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs font-mono text-slate-300">
-            <thead class="bg-darkbg text-slate-400 uppercase font-sans text-[11px]">
-              <tr>
-                <th class="p-3 rounded-l-lg">PCA9685 Pin</th>
-                <th class="p-3">Target Connection</th>
-                <th class="p-3">ESP32 Pin</th>
-                <th class="p-3">Arduino Uno Pin</th>
-                <th class="p-3 rounded-r-lg">Description / Notes</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-borderbg/50">
-              <tr>
-                <td class="p-3 font-semibold text-amber-400">VCC</td>
-                <td class="p-3">MCU Logic Power</td>
-                <td class="p-3">3.3V / 5V</td>
-                <td class="p-3">5V</td>
-                <td class="p-3 text-slate-400">Powers the internal chip logic of PCA9685.</td>
-              </tr>
-              <tr>
-                <td class="p-3 font-semibold text-slate-300">GND</td>
-                <td class="p-3">MCU Ground & PSU (-)</td>
-                <td class="p-3">GND</td>
-                <td class="p-3">GND</td>
-                <td class="p-3 text-slate-400">Must be connected to Common Ground of both MCU and Power Supply.</td>
-              </tr>
-              <tr>
-                <td class="p-3 font-semibold text-cyan-400">SDA</td>
-                <td class="p-3">I2C Data Line</td>
-                <td class="p-3">GPIO 21</td>
-                <td class="p-3">A4</td>
-                <td class="p-3 text-slate-400">Bi-directional I2C communication.</td>
-              </tr>
-              <tr>
-                <td class="p-3 font-semibold text-emerald-400">SCL</td>
-                <td class="p-3">I2C Clock Line</td>
-                <td class="p-3">GPIO 22</td>
-                <td class="p-3">A5</td>
-                <td class="p-3 text-slate-400">Synchronous timing clock signal.</td>
-              </tr>
-              <tr>
-                <td class="p-3 font-semibold text-rose-400">V+ (Screw Terminal)</td>
-                <td class="p-3">External Power Supply (+)</td>
-                <td class="p-3">N/A (External)</td>
-                <td class="p-3">N/A (External)</td>
-                <td class="p-3 text-rose-300">Connect 5V to 6V high-current external power block (+) here!</td>
-              </tr>
-              <tr>
-                <td class="p-3 font-semibold text-slate-300">GND (Screw Terminal)</td>
-                <td class="p-3">External Power Supply (-)</td>
-                <td class="p-3">N/A (External)</td>
-                <td class="p-3">N/A (External)</td>
-                <td class="p-3 text-slate-400">Ground wire from external power supply.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 3: SETTINGS -->
-    <section id="tab-settings" class="hidden space-y-6">
-      <div class="bg-cardbg rounded-2xl border border-borderbg p-6 shadow-xl">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 class="text-base font-semibold text-white flex items-center">
-              <i class="fa-solid fa-gear text-brand-400 mr-2"></i> Settings
-            </h2>
-            <p class="text-xs text-slate-400">Firmware for your ESP32. Flash it once, then connect with WebSerial to control any of the 16 PCA9685 pins.</p>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-semibold text-slate-200 flex items-center">
-            <i class="fa-solid fa-bolt text-brand-400 mr-2"></i> ESP32 WebSerial Firmware
-          </h3>
-          <button onclick="copyCode()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs px-4 py-2 rounded-xl transition flex items-center">
-            <i class="fa-solid fa-copy mr-1.5"></i> Copy Code
-          </button>
-        </div>
-        <pre id="code-display" class="bg-darkbg p-4 rounded-xl text-xs text-slate-300 font-mono overflow-x-auto h-96 border border-borderbg leading-relaxed select-all"></pre>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- BLOCK EDITOR POPUP -->
-  <div id="editor-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeEditor()">
-    <div class="bg-cardbg border border-borderbg rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-      <div class="flex items-center justify-between p-4 border-b border-borderbg">
-        <h3 id="editor-title" class="text-sm font-semibold text-white"></h3>
-        <button onclick="closeEditor()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div id="editor-body" class="p-4 overflow-y-auto space-y-3"></div>
-      <div id="editor-actions" class="p-4 border-t border-borderbg flex flex-wrap items-center gap-2"></div>
     </div>
   </div>
 
-  <!-- FOOTER -->
-  <footer class="border-t border-borderbg bg-cardbg/40 py-4 text-center text-xs text-slate-500 mt-auto">
-    PCA9685 16-Channel Servo Web Controller • Hardware-Ready Browser Interface
-  </footer>
+  <div class="studio">
+    <!-- POSE STORAGE -->
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px">
+        <h3>Pose Storage</h3>
+        <div class="row" style="gap:6px">
+          <button class="btn btn-brand btn-sm" onclick="captureKeyframe()" title="Store the current servo positions as a new pose in the selected bundle">＋ Save Pose</button>
+          <button class="btn btn-ghost btn-sm" onclick="newBundle()">＋ New Bundle</button>
+          <button class="btn btn-ghost btn-sm" onclick="$('bundle-file').click()">Load Bundle…</button>
+          <input id="bundle-file" type="file" accept=".json,application/json" multiple class="hidden" onchange="importBundles(this)">
+        </div>
+      </div>
+      <p class="note" style="margin:0 0 10px">Drag pose blocks into the sequence like Scratch blocks. Click a bundle name to rename, save or delete it. Click the highlighted bundle to choose where new poses go.</p>
+      <div class="row" style="margin-bottom:10px"><span class="block delay" id="delay-palette" draggable="true" title="Drag into the sequence to add a delay">⏱ <b>Delay</b> block</span><span class="xs dim">drag into the sequence</span></div>
+      <div id="storage-list" class="stack"></div>
+    </div>
 
-  <!-- JAVASCRIPT LOGIC ENGINE -->
-  <script>
-    // --- STATE MANAGEMENT ---
-    const MAX_SERVOS = 16;
-    const START_SERVOS = 8;
-    const DEFAULT_LABELS = ["Base / Pan", "Shoulder / Pitch", "Elbow / Lift", "Wrist / Roll", "Gripper / Claw", "Aux Servo 5", "Aux Servo 6", "Aux Servo 7"];
+    <!-- SEQUENCE -->
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px">
+        <h3>Sequence (<span id="pose-count">0</span> blocks)</h3>
+        <div class="row">
+          <button class="btn btn-amber btn-sm" onclick="addDelayBlock()" title="Add a pause at the end of the sequence">＋ Add Delay</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearSequence()">Clear</button>
+        </div>
+      </div>
+      <p class="note" style="margin:0 0 6px">Drag to reorder · click a block to edit it. Editing a pose here changes the stored pose too.</p>
+      <div id="keyframes-list" class="seq-list"></div>
+      <div class="row between" style="margin-top:10px;padding-top:12px;border-top:1px solid rgba(51,65,85,.6)">
+        <div class="row">
+          <span class="dim xs" title="Pause inserted between two poses that follow each other directly">Pose gap</span>
+          <select id="sequence-delay">
+            <option value="0">0ms</option><option value="300">300ms</option><option value="600" selected>600ms</option><option value="1000">1000ms</option><option value="2000">2000ms</option>
+          </select>
+          <label class="row xs" style="gap:6px;cursor:pointer" title="Repeat the sequence until you press Stop"><span class="switch"><input type="checkbox" id="loop-toggle"><span></span></span>Loop</label>
+        </div>
+        <button id="play-seq-btn" class="btn btn-green" onclick="playSequence()" disabled>▶ Play Sequence</button>
+      </div>
+    </div>
+  </div>
 
-    // Pulse Width Limits (SG90 / Standard Servos: ~500us to 2150 at 50Hz)
-    const MIN_PULSE_US = 500;
-    const MAX_PULSE_US = 2150;
+  <div class="row between">
+    <h3 style="margin:0;font-size:14px">Servos <span class="dim" style="font-weight:400">(<span id="servo-count">8</span>/16 pins used)</span></h3>
+    <button id="add-servo-btn" class="btn btn-brand" onclick="addServo()">＋ Add Servo</button>
+  </div>
+  <div id="servo-grid" class="grid-servos"></div>
 
-    // Each servo box has a permanent unique id (box) and an assignable PCA9685 pin (0-15)
-    let nextId = 0;
-    let servoState = [];
-    for (let i = 0; i < START_SERVOS; i++) {
-      servoState.push({ id: nextId++, label: DEFAULT_LABELS[i], angle: 90, enabled: true, pin: i });
-    }
-    const S = (id) => servoState.find(s => s.id === id);
+  <div class="card" style="padding:14px">
+    <div class="row between" style="margin-bottom:10px">
+      <span class="row sm" style="font-weight:600;color:#cbd5e1"><span class="dot"></span> Live I2C / Serial Data Output</span>
+      <button class="icon-btn" style="color:var(--mute)" onclick="clearTerminal()">Clear Log</button>
+    </div>
+    <div id="terminal-out" class="term mono"><div class="dim">// PCA9685 Control Studio initialized.</div></div>
+  </div>
+</section>
 
-    // Sequence blocks: {uid, type:'pose', angles:{boxId:angle}} or {uid, type:'delay', ms}
-    let sequence = [];
-    let seqUid = 0;
-    let isPlaying = false;
-    let stopRequested = false;
-    let isSweeping = false;
-    let sweepInterval = null;
-    let serialPort = null;
-    let serialWriter = null;
+<!-- ===== PREPARE (switch: Robot page / Controller page) ===== -->
+<section id="tab-prepare" class="hidden">
+  <div class="card">
+    <h3 style="margin-bottom:4px">Setup</h3>
+    <p class="note" style="margin:0 0 12px">Use one ESP32 on the robot, or two: the robot ESP32 plus a controller ESP32 that sends commands to it wirelessly (ESP-NOW). With two boards, use the switch to see each board's own wiring and code.</p>
+    <div class="row" style="gap:18px">
+      <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="esp-dual" type="checkbox" onchange="setEsp('dual',this.checked)"><span></span></span>Use two ESP32 boards (robot + controller)</label>
+      <span id="prep-switch" class="seg hidden">
+        <button id="prep-btn-robot" class="on" onclick="setPrepView('robot')">🤖 Robot ESP32</button>
+        <button id="prep-btn-ctrl" onclick="setPrepView('ctrl')">🎮 Controller ESP32</button>
+      </span>
+    </div>
+    <div id="esp-dual-fields" class="hidden" style="margin-top:14px">
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">WiFi channel (1–13)<input id="esp-channel" type="number" min="1" max="13" style="width:90px" onchange="setEsp('channel',this.value)"></label>
+        <label class="field">Robot ESP32 MAC<input id="esp-robot-mac" type="text" class="mono" style="width:170px" placeholder="AA:BB:CC:DD:EE:FF" onchange="setEsp('robotMac',this.value)"></label>
+        <label class="field">Controller ESP32 MAC (optional filter)<input id="esp-ctrl-mac" type="text" class="mono" style="width:170px" placeholder="AA:BB:CC:DD:EE:FF" onchange="setEsp('ctrlMac',this.value)"></label>
+      </div>
+      <p class="note" style="margin:10px 0 0">Both boards must use the same channel. To find a board's MAC: flash its code, press <b>Connect WebSerial</b>, and use the button in the popup. Leave the controller MAC at 00:00:… to let the robot accept any sender. These values go into both codes; re-flash after changing them.</p>
+      <div id="mac-warn" class="sbox warn hidden" style="margin-top:10px">⚠ The robot MAC is still 00:00:00:00:00:00. The controller cannot reach the robot until you enter it.</div>
+    </div>
+  </div>
 
-    // --- INITIALIZATION ---
-    window.onload = function() {
-      renderServoCards();
-      renderBoardDiagram('esp32');
-      showFirmware();
-      updateSequenceUI();
-      logTerminal("PCA9685 Studio Ready. Connect WebSerial or use standalone mode.");
-    };
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditor(); });
+  <!-- ROBOT PAGE -->
+  <div id="prep-robot" class="pg">
+    <div class="warn"><strong style="color:#fcd34d;font-size:14px;display:block;margin-bottom:4px">⚠ External servo power required</strong>
+      Servos can draw 500mA to 2A each under load. <b>Do NOT power multiple servos from the 5V pin of an Arduino or ESP32.</b> Connect a dedicated 5V/6V supply (3A–5A minimum) to the PCA9685 <b>V+ screw terminal</b> and join all grounds together.</div>
 
-    // --- TAB SWITCHING LOGIC ---
-    function switchTab(tabId) {
-      ['gui', 'wiring', 'settings'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabId);
-        const btn = document.getElementById(`nav-${t}`);
-        const mobBtn = document.getElementById(`mob-nav-${t}`);
-        if (t === tabId) {
-          btn.className = "px-4 py-1.5 rounded-lg text-brand-400 bg-cardbg font-semibold shadow-sm transition";
-          mobBtn.className = "px-3 py-1.5 rounded-lg text-brand-400 font-semibold bg-darkbg";
-        } else {
-          btn.className = "px-4 py-1.5 rounded-lg text-slate-400 hover:text-white transition";
-          mobBtn.className = "px-3 py-1.5 rounded-lg text-slate-400";
-        }
-      });
-    }
-
-    // --- ADD / REMOVE / ASSIGN SERVOS ---
-    function freePin() {
-      for (let p = 0; p < 16; p++) if (!servoState.some(s => s.pin === p)) return p;
-      return -1;
-    }
-
-    function addServo() {
-      const pin = freePin();
-      if (servoState.length >= MAX_SERVOS || pin < 0) return;
-      servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin });
-      renderServoCards();
-      logTerminal(`Added servo on pin ${pin}.`);
-    }
-
-    function removeServo(id) {
-      if (servoState.length <= 1) return;
-      const s = S(id);
-      servoState = servoState.filter(x => x.id !== id);
-      renderServoCards();
-      if (editor) renderEditor();
-      logTerminal(`Removed servo "${s.label}" (pin ${s.pin}).`);
-    }
-
-    function changePin(id, val) {
-      const pin = parseInt(val);
-      const owner = servoState.find(s => s.pin === pin && s.id !== id);
-      if (owner) {
-        logTerminal(`Pin ${pin} is already used by "${owner.label}". Pick a free pin.`);
-      } else {
-        S(id).pin = pin;
-        logTerminal(`"${S(id).label}" now controls pin ${pin}.`);
-      }
-      renderServoCards();
-      if (editor) renderEditor();
-    }
-
-    // --- RENDER SERVO CONTROL CARDS ---
-    function renderServoCards() {
-      const grid = document.getElementById('servo-grid');
-      grid.innerHTML = '';
-      document.getElementById('servo-count').innerText = servoState.length;
-      document.getElementById('add-servo-btn').disabled = servoState.length >= MAX_SERVOS;
-
-      const qb = 'bg-darkbg hover:bg-slate-700 text-slate-300 text-[11px] py-1 rounded border border-borderbg transition';
-      const pb = 'bg-slate-800 hover:bg-brand-900/40 hover:text-brand-300 text-slate-400 text-[10px] py-1 rounded border border-borderbg transition';
-
-      servoState.forEach((servo) => {
-        const id = servo.id;
-        const d = servo.enabled ? '' : 'disabled';
-        let pinOpts = '';
-        for (let p = 0; p < 16; p++) {
-          const owner = servoState.find(x => x.pin === p && x.id !== id);
-          pinOpts += `<option value="${p}" ${p === servo.pin ? 'selected' : ''} ${owner ? 'disabled' : ''}>${p}${owner ? ' (used)' : ''}</option>`;
-        }
-        const card = document.createElement('div');
-        card.className = `bg-cardbg rounded-2xl border ${servo.enabled ? 'border-borderbg' : 'border-slate-800 opacity-60'} p-4 shadow-lg transition-all duration-200 relative flex flex-col justify-between`;
-        card.id = `card-servo-${id}`;
-        card.innerHTML = `
-          <div>
-            <div class="flex items-center justify-between mb-2 gap-2">
-              <div class="flex items-center space-x-1.5 min-w-0">
-                <select onchange="changePin(${id}, this.value)" title="PCA9685 pin this box controls"
-                  class="bg-slate-800 border border-slate-700 text-brand-400 font-mono text-xs font-bold rounded-lg px-1 py-0.5 focus:outline-none shrink-0">${pinOpts}</select>
-                <input type="text" value="${servo.label.replace(/"/g, '&quot;')}" onchange="updateLabel(${id}, this.value)"
-                  class="bg-transparent text-xs font-semibold text-slate-200 hover:bg-darkbg/50 focus:bg-darkbg px-1.5 py-0.5 rounded border border-transparent focus:border-borderbg focus:outline-none transition w-full min-w-0 truncate" />
-              </div>
-              <div class="flex items-center space-x-2 shrink-0">
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" ${servo.enabled ? 'checked' : ''} onchange="toggleServoEnable(${id}, this.checked)" class="sr-only peer">
-                  <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-500"></div>
-                </label>
-                <button onclick="removeServo(${id})" title="Remove servo" ${servoState.length <= 1 ? 'disabled' : ''} class="text-slate-500 hover:text-rose-400 transition text-xs disabled:opacity-30"><i class="fa-solid fa-trash-can"></i></button>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between bg-darkbg/60 p-3 rounded-xl border border-borderbg/40 my-3">
-              <div>
-                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Angle</span>
-                <span id="angle-display-${id}" class="text-2xl font-bold font-mono text-brand-400">${servo.angle}°</span>
-              </div>
-              <div class="text-right">
-                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">PWM Pulse</span>
-                <span id="pulse-display-${id}" class="text-xs font-mono text-slate-300">${angleToPulse(servo.angle)} µs</span>
-              </div>
-            </div>
-
-            <div class="space-y-1 mb-4">
-              <input type="range" min="0" max="180" value="${servo.angle}" ${d}
-                oninput="onSliderMove(${id}, this.value)" id="slider-${id}" class="w-full" />
-              <div class="flex justify-between text-[10px] font-mono text-slate-500"><span>0°</span><span>90°</span><span>180°</span></div>
-            </div>
+    <div class="card">
+      <h3 style="margin-bottom:14px">Robot wiring</h3>
+      <div class="split">
+        <div class="panel">
+          <div class="row between" style="margin-bottom:10px"><b class="sm">Microcontroller (robot)</b>
+            <span class="row" style="gap:4px"><button id="btn-board-esp32" class="btn btn-sm btn-brand" onclick="switchBoard('esp32')">ESP32</button><button id="btn-board-uno" class="btn btn-sm" onclick="switchBoard('uno')">Arduino Uno</button></span></div>
+          <div id="board-diagram" class="stack"></div>
+        </div>
+        <div class="panel" style="border-color:rgba(59,130,246,.4)">
+          <div class="row between" style="margin-bottom:10px"><b class="sm" style="color:#60a5fa">PCA9685 Module</b><span class="chip">Addr 0x40</span></div>
+          <div class="stack">
+            <div class="kv"><span class="amber">VCC (Logic)</span><span>3.3V / 5V MCU</span></div>
+            <div class="kv"><span class="mute">GND</span><span>Common Ground</span></div>
+            <div class="kv"><span style="color:#22d3ee">SDA</span><span id="sda-pin-text">GPIO 21 (ESP32)</span></div>
+            <div class="kv"><span class="green">SCL</span><span id="scl-pin-text">GPIO 22 (ESP32)</span></div>
+            <div class="kv" style="background:rgba(76,5,25,.6)"><span class="rose"><b>V+ Terminal</b></span><span class="rose"><b>Ext 5V–6V PSU (+)</b></span></div>
           </div>
-
-          <div class="space-y-2 pt-2 border-t border-borderbg/40">
-            <div class="grid grid-cols-4 gap-1">
-              <button onclick="stepAngle(${id}, -5)" ${d} class="${qb}">-5°</button>
-              <button onclick="stepAngle(${id}, -1)" ${d} class="${qb}">-1°</button>
-              <button onclick="stepAngle(${id}, 1)" ${d} class="${qb}">+1°</button>
-              <button onclick="stepAngle(${id}, 5)" ${d} class="${qb}">+5°</button>
-            </div>
-            <div class="grid grid-cols-3 gap-1">
-              <button onclick="setServoAngle(${id}, 0)" ${d} class="${pb}">0° Min</button>
-              <button onclick="setServoAngle(${id}, 90)" ${d} class="${pb}">90° Mid</button>
-              <button onclick="setServoAngle(${id}, 180)" ${d} class="${pb}">180° Max</button>
-            </div>
+        </div>
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">Servos (up to 16)</b>
+          <div class="stack">
+            <div class="kv"><span>Channels 0–15 (as assigned)</span><span class="dim xs">Yellow | Red | Brown</span></div>
+            <div class="xs mute" style="line-height:1.7"><span class="amber"><b>Signal (PWM):</b></span> Yellow / White<br><span class="rose"><b>V+ Power:</b></span> Red<br><b>Ground:</b> Brown / Black</div>
           </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
+        </div>
+      </div>
+      <div class="scroll-x" style="margin-top:16px"><table class="mono">
+        <thead><tr><th>PCA9685 Pin</th><th>Target</th><th>ESP32</th><th>Arduino Uno</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="amber"><b>VCC</b></td><td>MCU logic power</td><td>3.3V / 5V</td><td>5V</td><td class="mute">Powers the PCA9685 chip logic.</td></tr>
+          <tr><td><b>GND</b></td><td>MCU ground &amp; PSU (−)</td><td>GND</td><td>GND</td><td class="mute">Common ground for MCU and power supply.</td></tr>
+          <tr><td style="color:#22d3ee"><b>SDA</b></td><td>I2C data</td><td id="tbl-sda">GPIO 21</td><td>A4</td><td class="mute">Bi-directional I2C data.</td></tr>
+          <tr><td class="green"><b>SCL</b></td><td>I2C clock</td><td id="tbl-scl">GPIO 22</td><td>A5</td><td class="mute">I2C clock.</td></tr>
+          <tr><td class="rose"><b>V+ (terminal)</b></td><td>External PSU (+)</td><td>N/A</td><td>N/A</td><td class="rose">5V–6V high-current supply goes here.</td></tr>
+          <tr><td><b>GND (terminal)</b></td><td>External PSU (−)</td><td>N/A</td><td>N/A</td><td class="mute">Ground from the external supply.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
 
-    // --- SERVO CONTROL FUNCTIONS ---
-    function angleToPulse(angle) {
-      return Math.round(MIN_PULSE_US + (angle / 180) * (MAX_PULSE_US - MIN_PULSE_US));
-    }
+    <div class="card">
+      <h3 style="margin-bottom:4px">Robot ESP32 config</h3>
+      <p class="note" style="margin:0 0 12px">Written into the robot code below and saved inside your config file (Settings). Re-flash after changing.</p>
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">I2C SDA pin<input id="esp-sda" type="number" min="0" max="39" style="width:90px" onchange="setEsp('sda',this.value)"></label>
+        <label class="field">I2C SCL pin<input id="esp-scl" type="number" min="0" max="39" style="width:90px" onchange="setEsp('scl',this.value)"></label>
+      </div>
+    </div>
 
-    function setServoAngle(id, angle, transmit = true) {
-      const s = S(id);
-      if (!s) return;
-      angle = Math.max(0, Math.min(180, parseInt(angle)));
-      s.angle = angle;
+    <div class="card">
+      <div class="row between" style="margin-bottom:8px">
+        <div><h3 id="robot-fw-title">Robot ESP32 firmware</h3><span id="robot-cfg-id" class="xs dim mono"></span></div>
+        <button class="btn btn-brand" onclick="copyCode('robot')">Copy Code</button>
+      </div>
+      <p class="note" style="margin:0 0 6px"><b>Put each firmware in its own sketch folder</b> (for example <code>robot/robot.ino</code>). Arduino compiles every .ino file in a folder together, so two firmwares or an old sketch in the same folder cause “redefinition” errors.</p>
+      <p class="note" style="margin:0 0 10px">Needs the “Adafruit PWM Servo Driver Library”. Pulse range, servo limits, pins and link settings come from your config. The board reports its device mode (0) and config id when asked, so this page can detect it on connect.</p>
+      <pre id="code-display" class="code"></pre>
+    </div>
+  </div>
 
-      const angleDisp = document.getElementById(`angle-display-${id}`);
-      const pulseDisp = document.getElementById(`pulse-display-${id}`);
-      const slider = document.getElementById(`slider-${id}`);
-      if (angleDisp) angleDisp.innerText = `${angle}°`;
-      if (pulseDisp) pulseDisp.innerText = `${angleToPulse(angle)} µs`;
-      if (slider) slider.value = angle;
+  <!-- CONTROLLER PAGE -->
+  <div id="prep-ctrl" class="pg hidden">
+    <div class="card">
+      <h3 style="margin-bottom:14px">Controller wiring</h3>
+      <div class="split">
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">Controller ESP32</b>
+          <div class="stack">
+            <div class="kv"><span class="amber">USB</span><span>Plug into your PC</span></div>
+            <div class="kv"><span class="mute">PCA9685 / servos</span><span>Not needed here</span></div>
+            <div class="kv"><span class="green">Wireless</span><span>ESP-NOW → robot ESP32</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">How it works</b>
+          <div class="xs mute" style="line-height:1.7">1. Flash this code on the controller ESP32.<br>2. Flash the robot code on the robot ESP32 and power the robot.<br>3. Connect this page (Connect WebSerial) to the <b>controller</b>.<br>4. Servo commands go PC → controller (USB) → robot (ESP-NOW). The robot applies the servo limits.</div>
+        </div>
+      </div>
+    </div>
 
-      if (transmit && s.enabled) sendServoCommand(s.pin, angle);
-    }
+    <div class="card">
+      <div class="row between" style="margin-bottom:8px">
+        <div><h3>Controller ESP32 firmware (device mode 1)</h3><span id="ctrl-cfg-id" class="xs dim mono"></span></div>
+        <button class="btn btn-brand" onclick="copyCode('ctrl')">Copy Code</button>
+      </div>
+      <p class="note" style="margin:0 0 6px"><b>Use a separate sketch folder</b> (for example <code>controller/controller.ino</code>), not the robot's folder.</p>
+      <p class="note" style="margin:0 0 10px">Uses the WiFi channel and robot MAC from Setup above. It reports device mode 1 and its config id when asked.</p>
+      <pre id="code-display-ctrl" class="code"></pre>
+    </div>
+  </div>
+</section>
 
-    function onSliderMove(id, value) { setServoAngle(id, value, true); }
-    function stepAngle(id, delta) { setServoAngle(id, S(id).angle + delta, true); }
+<!-- ===== SETTINGS ===== -->
+<section id="tab-settings" class="hidden">
+  <div class="card">
+    <h2>Servo Config</h2>
+    <p class="note" style="margin:4px 0 14px">Each servo has an angle range it is not allowed to leave (sliders, buttons, poses and the firmware all respect it).
+      Save your setup (pins, names, limits, pulse range, ESP settings) as a JSON file, and choose that file later to apply it.</p>
 
-    function toggleServoEnable(id, enabled) {
-      S(id).enabled = enabled;
-      renderServoCards();
-      logTerminal(`Servo on pin ${S(id).pin} (${S(id).label}) ${enabled ? 'ENABLED' : 'DISABLED'}`);
-    }
+    <div class="split" style="margin-bottom:14px">
+      <div class="stack">
+        <b class="sm">Apply a config</b>
+        <div class="row"><select id="profile-select" style="min-width:200px"></select>
+          <button class="btn btn-brand" onclick="applyProfile()">Apply</button></div>
+        <div class="row"><button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">Choose config file…</button>
+          <input id="import-file" type="file" accept=".json,application/json" class="hidden" onchange="importProfile(this)"></div>
+      </div>
+      <div class="stack">
+        <b class="sm">Save current settings</b>
+        <div class="row"><input id="profile-name" type="text" value="quadru_settings" style="width:200px"><span class="mute sm">.json</span>
+          <button class="btn btn-green" onclick="saveProfile()">Save</button></div>
+        <span id="profile-status" class="xs dim"></span>
+      </div>
+      <div class="stack">
+        <b class="sm">Pulse calibration (out of 4096)</b>
+        <div class="row">
+          <label class="field">SERVOMIN (0°)<input id="cfg-servomin" type="number" min="0" max="4095" onchange="setPulse('servomin',this.value)"></label>
+          <label class="field">SERVOMAX (180°)<input id="cfg-servomax" type="number" min="1" max="4095" onchange="setPulse('servomax',this.value)"></label>
+        </div>
+        <span class="xs dim">Used for the pulse readout and in the generated firmware (Prepare tab).</span>
+      </div>
+    </div>
 
-    function updateLabel(id, newLabel) {
-      S(id).label = newLabel || `Servo ${S(id).pin}`;
-      if (editor) renderEditor();
-    }
+    <div class="scroll-x"><table>
+      <thead><tr><th>Pin</th><th>Name</th><th>Min angle</th><th>Max angle</th><th></th></tr></thead>
+      <tbody id="limits-body"></tbody>
+    </table></div>
+  </div>
+</section>
 
-    function setAllServos(angle) {
-      servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, angle, true); });
-      logTerminal(`Master Command: Set All Servos to ${angle}°`);
-    }
+</main>
 
-    // --- SWEEP TEST FUNCTIONALITY ---
-    function toggleSweepTest() {
-      const btn = document.getElementById('sweep-btn');
-      const txt = document.getElementById('sweep-text');
+<!-- ===== BLOCK EDITOR POPUP ===== -->
+<div id="editor-modal" class="modal" onclick="if(event.target===this)closeEditor()">
+  <div id="editor-dialog" class="dialog">
+    <div class="d-head"><span id="editor-icon"></span><input id="editor-title" type="text" disabled><button class="icon-btn" style="font-size:16px;color:var(--mute)" onclick="closeEditor()" title="Close">✕</button></div>
+    <div id="editor-body" class="d-body"></div>
+    <div id="editor-actions" class="d-foot"></div>
+  </div>
+</div>
 
-      if (isSweeping) {
-        clearInterval(sweepInterval);
-        isSweeping = false;
-        btn.className = "bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs px-3 py-2 rounded-xl transition flex items-center";
-        txt.innerText = "Sweep Test";
-        logTerminal("Sweep Test Stopped.");
-      } else {
-        isSweeping = true;
-        btn.className = "bg-rose-600/30 hover:bg-rose-600/40 text-rose-300 border border-rose-500/50 text-xs px-3 py-2 rounded-xl transition flex items-center animate-pulse";
-        txt.innerText = "Stop Sweep";
-        logTerminal("Sweep Test Started (0° -> 180° -> 0°)");
+<!-- ===== DEVICE DETECTED POPUP ===== -->
+<div id="device-modal" class="modal" onclick="if(event.target===this)closeDevice()">
+  <div class="dialog">
+    <div class="d-head"><b id="device-title" style="flex:1"></b><button class="icon-btn" style="font-size:16px;color:var(--mute)" onclick="closeDevice()" title="Close">✕</button></div>
+    <div id="device-body" class="d-body"></div>
+    <div class="d-foot"><button class="btn btn-brand" style="margin-left:auto" onclick="closeDevice()">OK</button></div>
+  </div>
+</div>
 
-        let currentAngle = 0;
-        let direction = 5;
-        sweepInterval = setInterval(() => {
-          currentAngle += direction;
-          if (currentAngle >= 180 || currentAngle <= 0) direction *= -1;
-          servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, currentAngle, true); });
-        }, 100);
-      }
-    }
+<footer>PCA9685 16-Channel Servo Web Controller</footer>
 
-    // --- SEQUENCE BUILDER ---
-    function captureKeyframe() {
-      const angles = {};
-      servoState.forEach(s => { angles[s.id] = s.angle; });
-      sequence.push({ uid: ++seqUid, type: 'pose', angles });
-      updateSequenceUI();
-      logTerminal(`Captured pose (${sequence.length} blocks in sequence).`);
-    }
+<script>
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    function addDelayBlock() {
-      sequence.push({ uid: ++seqUid, type: 'delay', ms: 500 });
-      updateSequenceUI();
-    }
+// ---------- state ----------
+const MAX_SERVOS = 16;
+const DEFAULT_PROFILE = 'quadru_settings';
+const ZERO_MAC = '00:00:00:00:00:00';
 
-    function deleteBlock(uid) {
-      sequence = sequence.filter(b => b.uid !== uid);
-      if (editor && editor.uid === uid) closeEditor();
-      updateSequenceUI();
-    }
+// Built-in default config. The page always starts with this (edit it here to change the startup defaults).
+// servomin/servomax = PCA9685 pulse ticks (out of 4096 at 50Hz) for 0° and 180°.
+const DEFAULT_CONFIG = {
+  name: DEFAULT_PROFILE,
+  version: 2,
+  servomin: 125,
+  servomax: 540,
+  servos: [
+    { pin: 0, label: "Base / Pan",       min: 0, max: 180 },
+    { pin: 1, label: "Shoulder / Pitch", min: 0, max: 180 },
+    { pin: 2, label: "Elbow / Lift",     min: 0, max: 180 },
+    { pin: 3, label: "Wrist / Roll",     min: 0, max: 180 },
+    { pin: 4, label: "Gripper / Claw",   min: 0, max: 180 },
+    { pin: 5, label: "Aux Servo 5",      min: 0, max: 180 },
+    { pin: 6, label: "Aux Servo 6",      min: 0, max: 180 },
+    { pin: 7, label: "Aux Servo 7",      min: 0, max: 180 }
+  ],
+  // ESP32 settings: dual = use 2 boards (robot + controller linked with ESP-NOW)
+  esp: { dual: false, channel: 1, robotMac: ZERO_MAC, ctrlMac: ZERO_MAC, sda: 21, scl: 22 }
+};
 
-    function clearSequence() {
-      sequence = [];
-      closeEditor();
-      updateSequenceUI();
-      logTerminal("Cleared sequence.");
-    }
+let cfg = { servomin: DEFAULT_CONFIG.servomin, servomax: DEFAULT_CONFIG.servomax, esp: { ...DEFAULT_CONFIG.esp } };
+let nextId = 0;
+let servoState = DEFAULT_CONFIG.servos.map(e => ({ id: nextId++, label: e.label, angle: 90, enabled: true, pin: e.pin, min: e.min, max: e.max }));
+const S = (id) => servoState.find(s => s.id === id);
+const servoByPin = (pin) => servoState.find(s => s.pin === pin);
 
-    let dragIdx = null;
-    function updateSequenceUI() {
-      const list = document.getElementById('keyframes-list');
-      document.getElementById('pose-count').innerText = sequence.length;
-      document.getElementById('play-seq-btn').disabled = sequence.length === 0 && !isPlaying;
+let profiles = {};            // servo configs: name -> config object
+let activeProfile = DEFAULT_PROFILE;
 
-      if (sequence.length === 0) {
-        list.innerHTML = `<span class="text-xs text-slate-500 italic">Nothing here yet. Click "Save Pose" to record the servos, or "Delay" to add a pause.</span>`;
-        return;
-      }
+// Pose storage: bundles of named poses (angles are keyed by PCA9685 pin so bundles are portable).
+// The sequence holds *references* to stored poses, so editing a pose updates every block that uses it.
+let library = [];             // [{id,name,poses:[{id,name,angles:{pin:deg}}],collapsed,saved}]
+let bid = 0, pid = 0, poseCounter = 0;
+let activeBundleId = null, menuOpenId = null, renaming = null;
+let sequence = [];            // {uid,type:'pose',poseId} | {uid,type:'delay',ms}
+let seqUid = 0;
+let isPlaying = false, stopRequested = false;
+let isSweeping = false, sweepInterval = null;
+let dragData = null;
+let editor = null, editorCols = 4;
 
-      list.innerHTML = '';
-      let poseNo = 0;
-      sequence.forEach((b, idx) => {
-        const el = document.createElement('div');
-        el.draggable = true;
-        el.dataset.uid = b.uid;
-        let inner;
-        if (b.type === 'pose') {
-          poseNo++;
-          const preview = servoState.slice(0, 4).map(s => b.angles[s.id] !== undefined ? b.angles[s.id] + '°' : '–').join(', ');
-          el.className = "bg-slate-800 hover:bg-slate-700 border border-borderbg rounded-lg px-2.5 py-1.5 text-xs text-slate-300 flex items-center space-x-2 cursor-grab active:cursor-grabbing select-none transition";
-          inner = `<i class="fa-solid fa-grip-vertical text-slate-600"></i><i class="fa-solid fa-camera text-brand-400"></i>
-                   <span class="font-bold text-brand-400">Pose ${poseNo}</span><span class="text-[10px] text-slate-400">(${preview})</span>`;
-        } else {
-          el.className = "bg-amber-900/20 hover:bg-amber-900/30 border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-amber-200 flex items-center space-x-2 cursor-grab active:cursor-grabbing select-none transition";
-          inner = `<i class="fa-solid fa-grip-vertical text-amber-700"></i><i class="fa-solid fa-hourglass-half text-amber-400"></i>
-                   <span class="font-bold text-amber-300">Delay</span><span class="text-[10px]">${b.ms}ms</span>`;
-        }
-        el.innerHTML = inner + `<button onclick="event.stopPropagation();deleteBlock(${b.uid})" class="text-slate-500 hover:text-rose-400 transition ml-1"><i class="fa-solid fa-xmark"></i></button>`;
+// serial / device detection
+let serialPort = null, serialWriter = null, serialReader = null, readDone = null, helloTimer = null, deviceInfo = null;
 
-        el.addEventListener('click', () => openBlockEditor(b.uid));
-        el.addEventListener('dragstart', e => {
-          dragIdx = idx;
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', String(idx));
-          el.classList.add('opacity-40');
-        });
-        el.addEventListener('dragend', () => { dragIdx = null; updateSequenceUI(); });
-        el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('ring-2', 'ring-brand-400'); });
-        el.addEventListener('dragleave', () => el.classList.remove('ring-2', 'ring-brand-400'));
-        el.addEventListener('drop', e => {
-          e.preventDefault();
-          if (dragIdx === null || dragIdx === idx) return;
-          const [moved] = sequence.splice(dragIdx, 1);
-          sequence.splice(idx, 0, moved);
-          dragIdx = null;
-          updateSequenceUI();
-        });
-        list.appendChild(el);
-      });
-    }
+// ---------- startup ----------
+window.onload = function() {
+  loadStoredProfiles();
+  profiles[DEFAULT_PROFILE] = validateConfig(DEFAULT_CONFIG);   // the built-in default always wins over a remembered copy
+  activeProfile = DEFAULT_PROFILE;
+  applyConfig(profiles[DEFAULT_PROFILE]);
+  newBundle('My Poses', true);
+  renderStorage();
+  updateSequenceUI();
+  initPalette();
+  renderBoardDiagram('esp32');
+  logTerminal("Studio ready. No config file chosen: using the built-in default config (" + DEFAULT_PROFILE + ").");
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditor(); closeDevice(); } });
 
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    function setPlayUI(playing) {
-      const btn = document.getElementById('play-seq-btn');
-      btn.innerHTML = playing ? '<i class="fa-solid fa-stop mr-1"></i> Stop' : '<i class="fa-solid fa-play mr-1"></i> Play Sequence';
-      btn.className = playing
-        ? "bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1 rounded-lg transition"
-        : "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1 rounded-lg transition disabled:opacity-50";
-    }
-
-    async function playSequence() {
-      if (isPlaying) { stopRequested = true; return; }
-      if (sequence.length === 0) return;
-
-      isPlaying = true;
-      stopRequested = false;
-      setPlayUI(true);
-      const gap = parseInt(document.getElementById('sequence-delay').value);
-      const seq = [...sequence];
-      logTerminal(`Playing sequence (${seq.length} blocks)...`);
-
-      for (let i = 0; i < seq.length && !stopRequested; i++) {
-        const b = seq[i];
-        if (b.type === 'pose') {
-          servoState.forEach(s => {
-            if (s.enabled && b.angles[s.id] !== undefined) setServoAngle(s.id, b.angles[s.id], true);
-          });
-          const next = seq[i + 1];
-          if (next && next.type === 'pose') await sleep(gap);
-        } else {
-          await sleep(b.ms);
-        }
-      }
-
-      logTerminal(stopRequested ? "Sequence stopped." : "Sequence playback complete.");
-      isPlaying = false;
-      stopRequested = false;
-      setPlayUI(false);
-      updateSequenceUI();
-    }
-
-    // --- BLOCK EDITOR POPUP ---
-    let editor = null; // {uid, snapshot, live}
-    const curBlock = () => editor && sequence.find(b => b.uid === editor.uid);
-
-    function openBlockEditor(uid) {
-      const b = sequence.find(x => x.uid === uid);
-      if (!b) return;
-      // Servos added after this pose was saved start at their current angle
-      if (b.type === 'pose') servoState.forEach(s => { if (b.angles[s.id] === undefined) b.angles[s.id] = s.angle; });
-      editor = { uid, snapshot: JSON.parse(JSON.stringify(b)), live: false };
-      renderEditor();
-      const m = document.getElementById('editor-modal');
-      m.classList.remove('hidden');
-      m.classList.add('flex');
-    }
-
-    function closeEditor() {
-      editor = null;
-      const m = document.getElementById('editor-modal');
-      m.classList.add('hidden');
-      m.classList.remove('flex');
-      updateSequenceUI();
-    }
-
-    function renderEditor() {
-      const b = curBlock();
-      if (!b) return;
-      const body = document.getElementById('editor-body');
-      const actions = document.getElementById('editor-actions');
-      const btn = 'text-xs px-3 py-2 rounded-xl border transition flex items-center';
-      const idx = sequence.indexOf(b) + 1;
-
-      if (b.type === 'pose') {
-        document.getElementById('editor-title').innerHTML = `<i class="fa-solid fa-camera text-brand-400 mr-2"></i>Edit pose (block ${idx})`;
-        body.innerHTML = servoState.map(s => `
-          <div class="bg-darkbg/60 rounded-xl border border-borderbg/40 p-3 ${s.enabled ? '' : 'opacity-50'}">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-xs text-slate-300 truncate"><span class="font-mono text-brand-400 font-bold mr-1.5">Pin ${s.pin}</span>${s.label}${s.enabled ? '' : ' (disabled)'}</span>
-              <span id="ed-val-${s.id}" class="text-sm font-mono font-bold text-brand-400">${b.angles[s.id]}°</span>
-            </div>
-            <input type="range" min="0" max="180" value="${b.angles[s.id]}" class="w-full" oninput="editPoseAngle(${s.id}, this.value)">
-          </div>`).join('') + `<p class="text-[11px] text-slate-500">Changes to the pose are saved automatically.</p>`;
-
-        const live = editor.live;
-        actions.innerHTML = `
-          <button onclick="editorUpdate()" class="${btn} bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white" title="Send this pose to the servos once"><i class="fa-solid fa-paper-plane mr-1.5"></i>Update</button>
-          <button onclick="toggleLive()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Move the servos while you drag the sliders">
-            <span class="relative inline-block w-7 h-4 rounded-full mr-2 ${live ? 'bg-brand-500' : 'bg-slate-600'}"><span class="absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${live ? 'left-3.5' : 'left-0.5'}"></span></span>Live</button>
-          <button onclick="editorUndo()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Restore the values from before you started editing"><i class="fa-solid fa-rotate-left mr-1.5"></i>Undo</button>
-          <button onclick="editorPhysical()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200" title="Copy the servo positions currently applied on the real hardware"><i class="fa-solid fa-hand mr-1.5"></i>Physical</button>
-          <button onclick="closeEditor()" class="${btn} bg-brand-600 hover:bg-brand-500 border-brand-500 text-white ml-auto">Done</button>`;
-      } else {
-        document.getElementById('editor-title').innerHTML = `<i class="fa-solid fa-hourglass-half text-amber-400 mr-2"></i>Edit delay (block ${idx})`;
-        body.innerHTML = `
-          <label class="text-xs text-slate-400 block">Wait time (milliseconds)</label>
-          <div class="flex items-center space-x-2">
-            <input type="number" min="0" step="50" value="${b.ms}" oninput="editDelay(this.value)"
-              class="bg-darkbg border border-borderbg rounded-lg px-3 py-2 text-sm font-mono text-slate-100 w-40 focus:outline-none focus:border-brand-500">
-            <span class="text-xs text-slate-500">ms</span>
-          </div>`;
-        actions.innerHTML = `
-          <button onclick="editorUndo()" class="${btn} bg-slate-800 hover:bg-slate-700 border-borderbg text-slate-200"><i class="fa-solid fa-rotate-left mr-1.5"></i>Undo</button>
-          <button onclick="closeEditor()" class="${btn} bg-brand-600 hover:bg-brand-500 border-brand-500 text-white ml-auto">Done</button>`;
-      }
-    }
-
-    function editPoseAngle(id, v) {
-      const b = curBlock();
-      if (!b) return;
-      b.angles[id] = parseInt(v);
-      document.getElementById(`ed-val-${id}`).innerText = `${v}°`;
-      if (editor.live) setServoAngle(id, v, true);
-    }
-
-    function editDelay(v) {
-      const b = curBlock();
-      if (b) b.ms = Math.max(0, parseInt(v) || 0);
-    }
-
-    function applyPose(b) {
-      servoState.forEach(s => { if (s.enabled && b.angles[s.id] !== undefined) setServoAngle(s.id, b.angles[s.id], true); });
-    }
-
-    function editorUpdate() {
-      const b = curBlock();
-      if (!b) return;
-      applyPose(b);
-      logTerminal("Pose applied to servos.");
-    }
-
-    function toggleLive() {
-      editor.live = !editor.live;
-      if (editor.live) applyPose(curBlock());
-      renderEditor();
-      logTerminal(`Live update ${editor.live ? 'ON' : 'OFF'}.`);
-    }
-
-    function editorUndo() {
-      const b = curBlock();
-      if (!b) return;
-      const snap = JSON.parse(JSON.stringify(editor.snapshot));
-      if (b.type === 'pose') { b.angles = snap.angles; if (editor.live) applyPose(b); }
-      else b.ms = snap.ms;
-      renderEditor();
-    }
-
-    function editorPhysical() {
-      const b = curBlock();
-      if (!b || b.type !== 'pose') return;
-      servoState.forEach(s => { b.angles[s.id] = s.angle; });
-      renderEditor();
-      logTerminal("Copied current physical servo positions into the pose.");
-    }
-
-    // --- HARDWARE WEBSERIAL INTEGRATION ---
-    async function toggleWebSerial() {
-      if (!("serial" in navigator)) {
-        alert("WebSerial API is not supported in this browser. Please use Google Chrome, MS Edge, or Opera.");
-        return;
-      }
-
-      if (serialPort) {
-        // Disconnect
-        try {
-          if (serialWriter) serialWriter.releaseLock();
-          await serialPort.close();
-        } catch (e) {
-          console.error(e);
-        }
-        serialPort = null;
-        serialWriter = null;
-        updateSerialUI(false);
-        logTerminal("Disconnected from Hardware Serial Port.");
-      } else {
-        // Connect
-        try {
-          serialPort = await navigator.serial.requestPort();
-          await serialPort.open({ baudRate: 115200 });
-          serialWriter = serialPort.writable.getWriter();
-          updateSerialUI(true);
-          logTerminal("Connected to WebSerial hardware target (115200 baud).");
-        } catch (err) {
-          logTerminal(`WebSerial Connection Error: ${err.message}`);
-        }
-      }
-    }
-
-    function updateSerialUI(connected) {
-      const btn = document.getElementById('connect-btn');
-      const text = document.getElementById('connect-text');
-
-      if (connected) {
-        btn.className = "flex items-center space-x-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-rose-900/30";
-        text.innerText = "Disconnect Serial";
-      } else {
-        btn.className = "flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-lg shadow-emerald-900/30";
-        text.innerText = "Connect WebSerial";
-      }
-    }
-
-    async function sendServoCommand(channel, angle) {
-      const pulse = angleToPulse(angle);
-      const cmdStr = `s ${channel} ${angle}\n`;
-
-      logTerminal(`TX -> Channel [${channel}]: ${angle}° (${pulse}µs)`);
-
-      if (serialWriter) {
-        try {
-          const encoder = new TextEncoder();
-          await serialWriter.write(encoder.encode(cmdStr));
-        } catch (err) {
-          logTerminal(`TX Error: ${err.message}`);
-        }
-      }
-    }
-
-    // --- TERMINAL LOGGING ---
-    function logTerminal(message) {
-      const term = document.getElementById('terminal-out');
-      const timeStr = new Date().toLocaleTimeString().split(' ')[0];
-      const entry = document.createElement('div');
-      entry.innerHTML = `<span class="text-slate-500">[${timeStr}]</span> ${message}`;
-      term.appendChild(entry);
-      term.scrollTop = term.scrollHeight;
-    }
-
-    function clearTerminal() {
-      document.getElementById('terminal-out').innerHTML = `<div class="text-slate-500">// Terminal cleared. Outputting raw commands...</div>`;
-    }
-
-    // --- WIRING DIAGRAM SWITCHER ---
-    function switchBoard(type) {
-      const btnEsp = document.getElementById('btn-board-esp32');
-      const btnUno = document.getElementById('btn-board-uno');
-
-      if (type === 'esp32') {
-        btnEsp.className = "px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold";
-        btnUno.className = "px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300";
-        renderBoardDiagram('esp32');
-      } else {
-        btnUno.className = "px-2 py-0.5 rounded text-[10px] bg-brand-600 text-white font-semibold";
-        btnEsp.className = "px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300";
-        renderBoardDiagram('uno');
-      }
-    }
-
-    function renderBoardDiagram(board) {
-      const diag = document.getElementById('board-diagram');
-      const sdaText = document.getElementById('sda-pin-text');
-      const sclText = document.getElementById('scl-pin-text');
-
-      if (board === 'esp32') {
-        sdaText.innerText = "-> GPIO 21 (ESP32)";
-        sclText.innerText = "-> GPIO 22 (ESP32)";
-        diag.innerHTML = `
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-amber-400">3.3V / VIN</span><span>3.3V Logic Power</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-slate-400">GND</span><span>Common Ground</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-cyan-400">GPIO 21</span><span>SDA Line</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-emerald-400">GPIO 22</span><span>SCL Line</span></div>
-        `;
-      } else {
-        sdaText.innerText = "-> Pin A4 (Arduino Uno)";
-        sclText.innerText = "-> Pin A5 (Arduino Uno)";
-        diag.innerHTML = `
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-amber-400">5V</span><span>5V Logic Power</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-slate-400">GND</span><span>Common Ground</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-cyan-400">Pin A4</span><span>SDA Line</span></div>
-          <div class="flex justify-between bg-darkbg p-1.5 rounded"><span class="text-emerald-400">Pin A5</span><span>SCL Line</span></div>
-        `;
-      }
-    }
-
-    // --- ESP32 FIRMWARE ---
-    const ESP32_FIRMWARE = `/*
- * PCA9685 WebSerial Control Firmware (ESP32 / Arduino)
- * Receives serial commands from Web GUI (e.g. "s 0 90\\n")
- * Library Required: Adafruit PWM Servo Driver Library
- */
-
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
-
-// Called with default I2C address 0x40
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-
-#define SERVOMIN  125 // Minimum pulse length count out of 4096 (~500 us)
-#define SERVOMAX  625 // Maximum pulse length count out of 4096 (~2500 us)
-#define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-
-void setup() {
-  Serial.begin(115200);
-  Serial.println("PCA9685 WebSerial Servo Controller Starting...");
-
-  pwm.begin();
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(SERVO_FREQ);
-
-  delay(10);
+function refreshAll() {
+  renderServoCards();
+  renderSettings();
+  renderPrepare();
+  if (editor) renderEditor();
 }
 
-// Convert angle (0 to 180 degrees) to PCA9685 tick value (0..4095)
+function switchTab(tab) {
+  ['gui', 'prepare', 'settings'].forEach(t => {
+    $('tab-' + t).classList.toggle('hidden', t !== tab);
+    $('nav-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+// ---------- pulse maths ----------
+function angleToTicks(angle) {
+  return Math.round(cfg.servomin + (angle / 180) * (cfg.servomax - cfg.servomin));
+}
+function ticksToUs(t) { return Math.round(t * 1000000 / (50 * 4096)); }
+function angleToPulse(angle) { return ticksToUs(angleToTicks(angle)); }
+
+// ---------- add / remove / assign servos ----------
+function freePin() {
+  for (let p = 0; p < 16; p++) if (!servoState.some(s => s.pin === p)) return p;
+  return -1;
+}
+function addServo() {
+  const pin = freePin();
+  if (servoState.length >= MAX_SERVOS || pin < 0) return;
+  servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin, min: 0, max: 180 });
+  refreshAll();
+  logTerminal(`Added servo on pin ${pin}.`);
+}
+function removeServo(id) {
+  if (servoState.length <= 1) return;
+  const s = S(id);
+  servoState = servoState.filter(x => x.id !== id);
+  refreshAll();
+  logTerminal(`Removed "${s.label}" (pin ${s.pin}).`);
+}
+function changePin(id, val) {
+  const pin = parseInt(val);
+  const owner = servoState.find(s => s.pin === pin && s.id !== id);
+  if (owner) logTerminal(`Pin ${pin} is already used by "${owner.label}".`);
+  else { S(id).pin = pin; logTerminal(`"${S(id).label}" now controls pin ${pin}.`); }
+  refreshAll();
+}
+
+// ---------- servo cards ----------
+function renderServoCards() {
+  const grid = $('servo-grid');
+  grid.innerHTML = '';
+  $('servo-count').textContent = servoState.length;
+  $('add-servo-btn').disabled = servoState.length >= MAX_SERVOS;
+
+  servoState.forEach(s => {
+    const id = s.id, d = s.enabled ? '' : 'disabled';
+    let opts = '';
+    for (let p = 0; p < 16; p++) {
+      const owner = servoState.find(x => x.pin === p && x.id !== id);
+      opts += `<option value="${p}" ${p === s.pin ? 'selected' : ''} ${owner ? 'disabled' : ''}>${p}${owner ? ' (used)' : ''}</option>`;
+    }
+    const card = document.createElement('div');
+    card.className = 'servo-card' + (s.enabled ? '' : ' off');
+    card.innerHTML = `
+      <div class="sc-head">
+        <select class="pin-sel mono" title="PCA9685 pin this box controls" onchange="changePin(${id}, this.value)">${opts}</select>
+        <input type="text" class="lbl" value="${esc(s.label)}" onchange="updateLabel(${id}, this.value)">
+        <label class="switch" title="Enable / disable"><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleServoEnable(${id}, this.checked)"><span></span></label>
+        <button class="icon-btn" title="Remove servo" ${servoState.length <= 1 ? 'disabled' : ''} onclick="removeServo(${id})">🗑</button>
+      </div>
+      <div class="readout">
+        <div><span class="cap">Angle</span><span id="angle-display-${id}" class="big mono">${s.angle}°</span></div>
+        <div style="text-align:right"><span class="cap">PWM Pulse</span><span id="pulse-display-${id}" class="sm mono mute">${angleToPulse(s.angle)} µs</span></div>
+      </div>
+      <div>
+        <input type="range" id="slider-${id}" min="${s.min}" max="${s.max}" value="${s.angle}" ${d} oninput="setServoAngle(${id}, this.value)">
+        <div class="scale mono"><span>${s.min}°</span><span>limit</span><span>${s.max}°</span></div>
+      </div>
+      <div class="q4">
+        <button ${d} onclick="stepAngle(${id},-5)">-5°</button><button ${d} onclick="stepAngle(${id},-1)">-1°</button>
+        <button ${d} onclick="stepAngle(${id},1)">+1°</button><button ${d} onclick="stepAngle(${id},5)">+5°</button>
+      </div>
+      <div class="q3">
+        <button ${d} onclick="setServoAngle(${id},${s.min})">${s.min}° Min</button>
+        <button ${d} onclick="setServoAngle(${id},90)">90° Mid</button>
+        <button ${d} onclick="setServoAngle(${id},${s.max})">${s.max}° Max</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function setServoAngle(id, angle, transmit = true) {
+  const s = S(id);
+  if (!s) return;
+  angle = clamp(parseInt(angle), s.min, s.max);   // servo limit is enforced here
+  s.angle = angle;
+  const a = $('angle-display-' + id), p = $('pulse-display-' + id), sl = $('slider-' + id);
+  if (a) a.textContent = angle + '°';
+  if (p) p.textContent = angleToPulse(angle) + ' µs';
+  if (sl) sl.value = angle;
+  if (transmit && s.enabled) sendServoCommand(s.pin, angle);
+}
+function stepAngle(id, delta) { setServoAngle(id, S(id).angle + delta); }
+function toggleServoEnable(id, on) {
+  S(id).enabled = on;
+  refreshAll();
+  logTerminal(`Pin ${S(id).pin} (${S(id).label}) ${on ? 'ENABLED' : 'DISABLED'}`);
+}
+function updateLabel(id, v) { S(id).label = v || `Servo ${S(id).pin}`; refreshAll(); }
+function setAllServos(angle) {
+  servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, angle); });
+  logTerminal(`Master command: all servos to ${angle}° (limits applied)`);
+}
+
+function toggleSweepTest() {
+  const btn = $('sweep-btn'), txt = $('sweep-text');
+  if (isSweeping) {
+    clearInterval(sweepInterval); isSweeping = false;
+    btn.className = 'btn btn-amber'; txt.textContent = 'Sweep Test';
+    logTerminal('Sweep stopped.');
+    return;
+  }
+  isSweeping = true;
+  btn.className = 'btn btn-rose'; txt.textContent = 'Stop Sweep';
+  logTerminal('Sweep started (within each servo\'s limits).');
+  let t = 0, dir = 0.05;                      // 0..1 position between each servo's min and max
+  sweepInterval = setInterval(() => {
+    t += dir;
+    if (t >= 1) { t = 1; dir = -dir; } else if (t <= 0) { t = 0; dir = -dir; }
+    servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, Math.round(s.min + t * (s.max - s.min))); });
+  }, 100);
+}
+
+// ---------- servo config: limits, profiles ----------
+function renderSettings() {
+  $('cfg-servomin').value = cfg.servomin;
+  $('cfg-servomax').value = cfg.servomax;
+  const names = Object.keys(profiles);
+  $('profile-select').innerHTML = names.length
+    ? names.map(n => `<option value="${esc(n)}" ${n === activeProfile ? 'selected' : ''}>${esc(n)}.json</option>`).join('')
+    : '<option value="">(nothing loaded)</option>';
+  if (document.activeElement !== $('profile-name')) $('profile-name').value = activeProfile;
+
+  $('limits-body').innerHTML = [...servoState].sort((a, b) => a.pin - b.pin).map(s => `
+    <tr>
+      <td class="mono brand"><b>${s.pin}</b></td>
+      <td><input type="text" value="${esc(s.label)}" onchange="updateLabel(${s.id}, this.value)"></td>
+      <td><input type="number" min="0" max="180" value="${s.min}" onchange="setLimit(${s.id},'min',this.value)"> °</td>
+      <td><input type="number" min="0" max="180" value="${s.max}" onchange="setLimit(${s.id},'max',this.value)"> °</td>
+      <td><button class="btn btn-sm btn-ghost" onclick="setLimitBoth(${s.id},0,180)">Reset 0–180</button></td>
+    </tr>`).join('');
+}
+
+function setLimit(id, which, v) {
+  const s = S(id);
+  let n = parseInt(v);
+  if (isNaN(n)) { renderSettings(); return; }
+  n = clamp(n, 0, 180);
+  const nmin = which === 'min' ? n : s.min, nmax = which === 'max' ? n : s.max;
+  if (nmin > nmax) { logTerminal(`Min angle can't be above max angle for pin ${s.pin}.`); renderSettings(); return; }
+  setLimitBoth(id, nmin, nmax);
+}
+function setLimitBoth(id, min, max) {
+  const s = S(id);
+  s.min = min; s.max = max;
+  if (s.angle < min || s.angle > max) setServoAngle(id, clamp(s.angle, min, max));
+  refreshAll();
+  logTerminal(`Pin ${s.pin} limit: ${min}° – ${max}°`);
+}
+function setPulse(which, v) {
+  const n = parseInt(v);
+  const nmin = which === 'servomin' ? n : cfg.servomin, nmax = which === 'servomax' ? n : cfg.servomax;
+  if (isNaN(n) || n < 0 || n > 4095 || nmin >= nmax) { logTerminal('Pulse values must be 0–4095 with SERVOMIN below SERVOMAX.'); renderSettings(); return; }
+  cfg[which] = n;
+  refreshAll();
+  logTerminal(`${which.toUpperCase()} = ${n}`);
+}
+
+const MAC_RE = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+
+function normEsp(e) {
+  e = e || {};
+  const num = (v, d) => (v === undefined || v === null || v === '' ? d : parseInt(v));
+  const sda = num(e.sda, 21), scl = num(e.scl, 22), ch = num(e.channel, 1);
+  const rm = String(e.robotMac || ZERO_MAC).trim().toUpperCase();
+  const cm = String(e.ctrlMac || ZERO_MAC).trim().toUpperCase();
+  if (!(sda >= 0 && sda <= 39 && scl >= 0 && scl <= 39 && sda !== scl)) throw new Error('ESP: SDA and SCL must be two different pins (0–39)');
+  if (!(ch >= 1 && ch <= 13)) throw new Error('ESP: WiFi channel must be 1–13');
+  if (!MAC_RE.test(rm) || !MAC_RE.test(cm)) throw new Error('ESP: MAC addresses must look like AA:BB:CC:DD:EE:FF');
+  return { dual: !!e.dual, channel: ch, robotMac: rm, ctrlMac: cm, sda, scl };
+}
+
+function currentConfig(name) {
+  return { name, version: 2, servomin: cfg.servomin, servomax: cfg.servomax,
+    servos: [...servoState].sort((a, b) => a.pin - b.pin).map(s => ({ pin: s.pin, label: s.label, min: s.min, max: s.max })),
+    esp: { ...cfg.esp } };
+}
+
+function validateConfig(c) {
+  if (!c || typeof c !== 'object' || !Array.isArray(c.servos) || c.servos.length < 1 || c.servos.length > 16) throw new Error('"servos" must list 1–16 entries');
+  const seen = new Set();
+  const servos = c.servos.map((e, i) => {
+    const pin = parseInt(e.pin), min = parseInt(e.min), max = parseInt(e.max);
+    if (!(pin >= 0 && pin <= 15)) throw new Error(`servo ${i + 1}: pin must be 0–15`);
+    if (seen.has(pin)) throw new Error(`pin ${pin} is used twice`);
+    seen.add(pin);
+    if (!(min >= 0 && max <= 180 && min <= max)) throw new Error(`pin ${pin}: need 0 ≤ min ≤ max ≤ 180`);
+    return { pin, label: String(e.label || `Servo ${pin}`), min, max };
+  });
+  const smin = c.servomin === undefined ? cfg.servomin : parseInt(c.servomin);
+  const smax = c.servomax === undefined ? cfg.servomax : parseInt(c.servomax);
+  if (!(smin >= 0 && smax <= 4095 && smin < smax)) throw new Error('servomin/servomax invalid');
+  return { name: String(c.name || ''), version: 2, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp) };
+}
+
+function applyConfig(c) {
+  const old = servoState, used = new Set();
+  servoState = c.servos.map(e => {
+    const prev = old.find(o => o.pin === e.pin && !used.has(o.id));
+    if (prev) used.add(prev.id);
+    return { id: prev ? prev.id : nextId++, label: e.label, angle: clamp(prev ? prev.angle : 90, e.min, e.max),
+             enabled: prev ? prev.enabled : true, pin: e.pin, min: e.min, max: e.max };
+  });
+  cfg.servomin = c.servomin; cfg.servomax = c.servomax; cfg.esp = { ...c.esp };
+  refreshAll();
+  renderBoardDiagram(currentBoard);
+  updateSequenceUI();
+}
+
+function setEsp(key, val) {
+  const next = { ...cfg.esp };
+  if (key === 'dual') next.dual = !!val;
+  else if (key === 'robotMac' || key === 'ctrlMac') next[key] = String(val).trim().toUpperCase() || ZERO_MAC;
+  else next[key] = val;
+  try { cfg.esp = normEsp(next); logTerminal(`ESP setting changed: ${key} = ${cfg.esp[key]}`); }
+  catch (e) { logTerminal(e.message); }
+  refreshAll();
+  renderBoardDiagram(currentBoard);
+}
+
+// A short id of everything that gets baked into a firmware. The firmware reports it, so the web can tell
+// whether the board runs the config that is loaded here (or the default one).
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+function bakedSpec(role, c) {
+  const lo = Array(16).fill(0), hi = Array(16).fill(180);
+  c.servos.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
+  const e = c.esp;
+  const link = e.dual ? { dual: true, channel: e.channel, robotMac: e.robotMac, ctrlMac: e.ctrlMac } : { dual: false };
+  return role === 0 ? { role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link } : { role: 1, link };
+}
+function cfgId(role, c) { return fnv1a(JSON.stringify(bakedSpec(role, c))); }
+
+function loadStoredProfiles() {
+  try {
+    const raw = localStorage.getItem('quadru_profiles');
+    if (raw) Object.entries(JSON.parse(raw)).forEach(([n, c]) => { try { profiles[n] = validateConfig(c); } catch (e) {} });
+  } catch (e) {}
+}
+function storeProfiles() { try { localStorage.setItem('quadru_profiles', JSON.stringify(profiles)); } catch (e) {} }
+function setStatus(t) { $('profile-status').textContent = t; }
+
+function applyProfile() {
+  const name = $('profile-select').value;
+  if (!name || !profiles[name]) return;
+  activeProfile = name;
+  applyConfig(profiles[name]);
+  logTerminal(`Applied config "${name}".`);
+  setStatus(`Applied ${name}.json`);
+}
+
+function importProfile(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const c = validateConfig(JSON.parse(r.result));
+      const name = f.name.replace(/\.json$/i, '');
+      profiles[name] = c; activeProfile = name; storeProfiles();
+      applyConfig(c);
+      logTerminal(`Imported ${f.name}.`); setStatus(`Imported ${f.name}`);
+    } catch (e) { logTerminal(`Import failed: ${e.message}`); setStatus(`Import failed: ${e.message}`); }
+    input.value = '';
+  };
+  r.readAsText(f);
+}
+
+async function saveTextFile(filename, text) {
+  try {
+    if (!window.showSaveFilePicker) throw new Error('no picker');
+    const h = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+    const w = await h.createWritable(); await w.write(text); await w.close();
+    return 'picker';
+  } catch (e) {
+    if (e && e.name === 'AbortError') return null;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    return 'download';
+  }
+}
+
+async function saveProfile() {
+  const name = $('profile-name').value.trim().replace(/\.json$/i, '').replace(/[^\w\-]+/g, '_') || DEFAULT_PROFILE;
+  const c = currentConfig(name);
+  profiles[name] = validateConfig(c); activeProfile = name; storeProfiles();
+  const how = await saveTextFile(name + '.json', JSON.stringify(c, null, 2));
+  if (how) {
+    const msg = `Saved ${name}.json${how === 'download' ? ' to your downloads folder' : ''}.`;
+    logTerminal(msg); setStatus(msg);
+  }
+  renderSettings();
+}
+
+// ---------- pose storage (bundles) ----------
+function uniqueBundleName(n) {
+  let name = n, i = 2;
+  while (library.some(b => b.name === name)) name = `${n} (${i++})`;
+  return name;
+}
+function newBundle(name, silent) {
+  const b = { id: ++bid, name: uniqueBundleName(name || 'Bundle'), poses: [], collapsed: false, saved: false };
+  library.push(b);
+  activeBundleId = b.id;
+  if (!silent) { renderStorage(); logTerminal(`Created bundle "${b.name}".`); }
+  return b;
+}
+const getBundle = (id) => library.find(b => b.id === id);
+function findPose(id) {
+  for (const b of library) { const p = b.poses.find(x => x.id === id); if (p) return { pose: p, bundle: b }; }
+  return null;
+}
+const poseObj = (id) => { const f = findPose(id); return f && f.pose; };
+function markDirty(poseId) {
+  const f = findPose(poseId);
+  if (f && f.bundle.saved) { f.bundle.saved = false; renderStorage(); }
+}
+
+function captureKeyframe() {
+  const b = getBundle(activeBundleId) || library[0] || newBundle('My Poses', true);
+  const angles = {};
+  servoState.forEach(s => { angles[s.pin] = s.angle; });
+  const p = { id: ++pid, name: `Pose #${++poseCounter}`, angles };
+  b.poses.push(p);
+  b.saved = false; b.collapsed = false; activeBundleId = b.id;
+  renderStorage();
+  logTerminal(`Saved "${p.name}" into bundle "${b.name}".`);
+}
+
+function selectBundle(id) { activeBundleId = id; renderStorage(); }
+function toggleBundle(id) { const b = getBundle(id); b.collapsed = !b.collapsed; renderStorage(); }
+function toggleMenu(id) { menuOpenId = menuOpenId === id ? null : id; activeBundleId = id; renderStorage(); }
+function renameBundle(id) { renaming = { kind: 'bundle', id }; menuOpenId = null; renderStorage(); }
+function renamePose(id) { renaming = { kind: 'pose', id }; renderStorage(); }
+function renameKey(e) {
+  if (e.key === 'Enter') e.target.blur();
+  else if (e.key === 'Escape') { renaming = null; renderStorage(); }
+}
+function commitRename(v) {
+  if (!renaming) return;
+  const r = renaming; renaming = null; v = v.trim();
+  if (v) {
+    if (r.kind === 'bundle') { const b = getBundle(r.id); if (b && v !== b.name) { b.name = v; b.saved = false; } }
+    else { const f = findPose(r.id); if (f && v !== f.pose.name) { f.pose.name = v; f.bundle.saved = false; } }
+  }
+  renderStorage(); updateSequenceUI();
+}
+
+function deleteBundle(id) {
+  const b = getBundle(id);
+  if (!b) return;
+  if (!confirm(`Delete bundle "${b.name}" and its ${b.poses.length} pose(s)?\n(A bundle file you saved earlier is not touched.)`)) return;
+  const ids = new Set(b.poses.map(p => p.id));
+  sequence = sequence.filter(x => x.type !== 'pose' || !ids.has(x.poseId));
+  if (editor && editor.type === 'pose' && ids.has(editor.target.id)) closeEditor();
+  library = library.filter(x => x.id !== id);
+  menuOpenId = null;
+  if (activeBundleId === id) activeBundleId = library.length ? library[0].id : null;
+  renderStorage(); updateSequenceUI();
+  logTerminal(`Deleted bundle "${b.name}".`);
+}
+function deletePose(poseId) {
+  const f = findPose(poseId);
+  if (!f) return;
+  const uses = sequence.filter(x => x.type === 'pose' && x.poseId === poseId).length;
+  if (uses && !confirm(`"${f.pose.name}" is used ${uses} time(s) in the sequence. Delete it and remove those blocks?`)) return;
+  if (editor && editor.target === f.pose) closeEditor();
+  f.bundle.poses = f.bundle.poses.filter(p => p.id !== poseId);
+  f.bundle.saved = false;
+  sequence = sequence.filter(x => x.type !== 'pose' || x.poseId !== poseId);
+  renderStorage(); updateSequenceUI();
+}
+
+function bundleToJson(b) {
+  return { type: 'pose_bundle', version: 1, name: b.name, poses: b.poses.map(p => ({ name: p.name, angles: p.angles })) };
+}
+async function saveBundle(id) {
+  const b = getBundle(id);
+  menuOpenId = null;
+  if (!b) return;
+  const file = (b.name.replace(/[^\w\- ]+/g, '_').trim() || 'bundle') + '.json';
+  const how = await saveTextFile(file, JSON.stringify(bundleToJson(b), null, 2));
+  if (how) { b.saved = true; logTerminal(`Saved bundle "${b.name}" as ${file}${how === 'download' ? ' (downloads folder)' : ''}.`); }
+  renderStorage();
+}
+function validateBundle(j, fallbackName) {
+  if (!j || !Array.isArray(j.poses)) throw new Error('not a pose bundle (missing "poses")');
+  const poses = j.poses.map((p, i) => {
+    if (!p || typeof p.angles !== 'object') throw new Error(`pose ${i + 1} has no angles`);
+    const angles = {};
+    Object.entries(p.angles).forEach(([k, v]) => {
+      const pin = parseInt(k), a = parseInt(v);
+      if (!(pin >= 0 && pin <= 15) || !(a >= 0 && a <= 180)) throw new Error(`pose ${i + 1}: bad entry ${k}: ${v}`);
+      angles[pin] = a;
+    });
+    return { name: String(p.name || `Pose #${i + 1}`), angles };
+  });
+  return { name: String(j.name || fallbackName || 'Bundle'), poses };
+}
+function importBundles(input) {
+  [...input.files].forEach(f => {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const v = validateBundle(JSON.parse(r.result), f.name.replace(/\.json$/i, ''));
+        const b = { id: ++bid, name: uniqueBundleName(v.name), collapsed: false, saved: true,
+          poses: v.poses.map(p => {
+            const m = /^Pose #(\d+)$/.exec(p.name); if (m) poseCounter = Math.max(poseCounter, parseInt(m[1]));
+            return { id: ++pid, name: p.name, angles: p.angles };
+          }) };
+        library.push(b); activeBundleId = b.id;
+        renderStorage();
+        logTerminal(`Loaded bundle "${b.name}" (${b.poses.length} poses) from ${f.name}.`);
+      } catch (e) { logTerminal(`Couldn't load ${f.name}: ${e.message}`); }
+    };
+    r.readAsText(f);
+  });
+  input.value = '';
+}
+
+function renderStorage() {
+  const root = $('storage-list');
+  root.innerHTML = '';
+  if (!library.length) root.innerHTML = '<span class="xs dim" style="font-style:italic">No bundles. Use “＋ New Bundle” or “Load Bundle…”.</span>';
+  library.forEach(b => {
+    const box = document.createElement('div');
+    box.className = 'bundle ' + (b.saved ? 'saved' : 'unsaved') + (b.id === activeBundleId ? ' active' : '');
+    const rb = renaming && renaming.kind === 'bundle' && renaming.id === b.id;
+    const nameHtml = rb
+      ? `<input id="rename-input" class="rn" type="text" value="${esc(b.name)}" onclick="event.stopPropagation()" onkeydown="renameKey(event)" onblur="commitRename(this.value)">`
+      : `<span class="b-name" title="Click for rename / save / delete" onclick="event.stopPropagation();toggleMenu(${b.id})">${esc(b.name)} <span class="dim">▾</span></span>`;
+    box.innerHTML = `
+      <div class="b-head" onclick="selectBundle(${b.id})" title="${b.id === activeBundleId ? 'New poses are saved into this bundle' : 'Click to make this the bundle new poses go into'}">
+        <button class="arrow" title="Expand / collapse" onclick="event.stopPropagation();toggleBundle(${b.id})">${b.collapsed ? '▸' : '▾'}</button>
+        ${nameHtml}
+        <span class="b-status ${b.saved ? 'ok' : 'warn'}">● ${b.saved ? 'Saved' : 'Unsaved'}</span>
+        <span class="xs dim" style="margin-left:auto">${b.poses.length} pose${b.poses.length === 1 ? '' : 's'}</span>
+      </div>`;
+    if (menuOpenId === b.id) {
+      box.insertAdjacentHTML('beforeend', `<div class="b-menu">
+        <button class="btn btn-sm btn-ghost" onclick="renameBundle(${b.id})">✎ Rename</button>
+        <button class="btn btn-sm btn-green" onclick="saveBundle(${b.id})">💾 Save to file</button>
+        <button class="btn btn-sm btn-ghost" style="color:var(--rose)" onclick="deleteBundle(${b.id})">🗑 Delete</button></div>`);
+    }
+    if (!b.collapsed) {
+      const body = document.createElement('div');
+      body.className = 'b-body';
+      if (!b.poses.length) body.innerHTML = '<span class="xs dim" style="font-style:italic">Empty. Press “＋ Save Pose” to store the current servo positions here.</span>';
+      b.poses.forEach(p => {
+        const rp = renaming && renaming.kind === 'pose' && renaming.id === p.id;
+        const el = document.createElement('div');
+        el.className = 'block';
+        el.draggable = !rp;
+        el.title = 'Drag into the sequence · click to edit values';
+        el.innerHTML = `<span class="grip">⠿</span><span>📷</span>` + (rp
+          ? `<input id="rename-input" class="rn" type="text" value="${esc(p.name)}" onclick="event.stopPropagation()" onkeydown="renameKey(event)" onblur="commitRename(this.value)">`
+          : `<b>${esc(p.name)}</b>`) +
+          `<button class="x" title="Add to the end of the sequence" onclick="event.stopPropagation();addPoseToSequence(${p.id})">＋</button>
+           <button class="x" title="Rename" onclick="event.stopPropagation();renamePose(${p.id})">✎</button>
+           <button class="x" title="Delete pose" onclick="event.stopPropagation();deletePose(${p.id})">✕</button>`;
+        el.addEventListener('click', () => openPoseEditor(p.id));
+        el.addEventListener('dragstart', e => { dragData = { kind: 'lib', poseId: p.id }; e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', 'pose'); });
+        el.addEventListener('dragend', () => { dragData = null; });
+        body.appendChild(el);
+      });
+      box.appendChild(body);
+    }
+    root.appendChild(box);
+  });
+  const r = $('rename-input');
+  if (r) { r.focus(); r.select(); }
+}
+
+function initPalette() {
+  const el = $('delay-palette');
+  el.addEventListener('dragstart', e => { dragData = { kind: 'newdelay' }; e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', 'delay'); });
+  el.addEventListener('dragend', () => { dragData = null; });
+}
+
+// ---------- sequence ----------
+function addPoseToSequence(poseId) {
+  sequence.push({ uid: ++seqUid, type: 'pose', poseId });
+  updateSequenceUI();
+}
+function addDelayBlock() {
+  sequence.push({ uid: ++seqUid, type: 'delay', ms: 500 });
+  updateSequenceUI();
+}
+function deleteBlock(uid) {
+  const b = sequence.find(x => x.uid === uid);
+  if (editor && editor.target === b) closeEditor();
+  sequence = sequence.filter(x => x.uid !== uid);
+  updateSequenceUI();
+}
+function clearSequence() { sequence = []; closeEditor(); updateSequenceUI(); logTerminal('Sequence cleared (stored poses are kept).'); }
+
+function dropAt(idx) {
+  if (!dragData) return;
+  if (dragData.kind === 'seq') {
+    const from = dragData.idx;
+    const [m] = sequence.splice(from, 1);
+    if (from < idx) idx--;
+    sequence.splice(idx, 0, m);
+  } else if (dragData.kind === 'lib') {
+    if (poseObj(dragData.poseId)) sequence.splice(idx, 0, { uid: ++seqUid, type: 'pose', poseId: dragData.poseId });
+  } else if (dragData.kind === 'newdelay') {
+    sequence.splice(idx, 0, { uid: ++seqUid, type: 'delay', ms: 500 });
+  }
+  dragData = null;
+  updateSequenceUI();
+}
+function addDropHandlers(el, idx) {
+  el.addEventListener('dragover', e => { if (!dragData) return; e.preventDefault(); e.dataTransfer.dropEffect = dragData.kind === 'seq' ? 'move' : 'copy'; el.classList.add('over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('over'); dropAt(idx); });
+}
+
+function updateSequenceUI() {
+  const list = $('keyframes-list');
+  $('pose-count').textContent = sequence.length;
+  $('play-seq-btn').disabled = sequence.length === 0 && !isPlaying;
+  list.innerHTML = '';
+  const order = [...servoState].sort((a, b) => a.pin - b.pin);
+  sequence.forEach((b, idx) => {
+    const el = document.createElement('div');
+    el.draggable = true;
+    if (b.type === 'pose') {
+      const p = poseObj(b.poseId);
+      if (!p) return;
+      const prev = order.slice(0, 4).map(s => p.angles[s.pin] !== undefined ? p.angles[s.pin] + '°' : '–').join(', ');
+      el.className = 'block';
+      el.innerHTML = `<span class="grip">⠿</span><span>📷</span><b>${esc(p.name)}</b><span class="xs dim">(${prev})</span>`;
+    } else {
+      el.className = 'block delay';
+      el.innerHTML = `<span class="grip">⠿</span><span>⏱</span><b>Delay</b><span class="xs">${b.ms}ms</span>`;
+    }
+    el.insertAdjacentHTML('beforeend', `<button class="x" title="Remove block" onclick="event.stopPropagation();deleteBlock(${b.uid})">✕</button>`);
+    el.addEventListener('click', () => openBlockEditor(b.uid));
+    el.addEventListener('dragstart', e => { dragData = { kind: 'seq', idx }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'block'); el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => { dragData = null; updateSequenceUI(); });
+    addDropHandlers(el, idx);
+    list.appendChild(el);
+  });
+  const zone = document.createElement('div');
+  zone.className = 'dropzone';
+  zone.textContent = sequence.length ? 'drop here to add at the end' : 'Drag pose blocks here from Pose Storage (or press ＋ on a pose)';
+  addDropHandlers(zone, sequence.length);
+  list.appendChild(zone);
+}
+
+function setPlayUI(playing) {
+  const b = $('play-seq-btn');
+  b.textContent = playing ? '■ Stop' : '▶ Play Sequence';
+  b.className = 'btn ' + (playing ? 'btn-rose' : 'btn-green');
+}
+async function playSequence() {
+  if (isPlaying) { stopRequested = true; return; }
+  if (!sequence.length) return;
+  isPlaying = true; stopRequested = false; setPlayUI(true);
+  const gap = parseInt($('sequence-delay').value);
+  logTerminal(`Playing sequence (${sequence.length} blocks)${$('loop-toggle').checked ? ', looping' : ''}...`);
+  do {
+    const seq = [...sequence];
+    for (let i = 0; i < seq.length && !stopRequested; i++) {
+      const b = seq[i];
+      if (b.type === 'pose') {
+        const p = poseObj(b.poseId);
+        if (p) applyPose(p);
+        const next = seq[i + 1];
+        if (next && next.type === 'pose') await sleep(gap);
+      } else await sleep(b.ms);
+    }
+    if (!stopRequested && $('loop-toggle').checked) await sleep(60);   // tiny pause so a loop can never spin flat out
+  } while (!stopRequested && $('loop-toggle').checked && sequence.length);
+  logTerminal(stopRequested ? 'Sequence stopped.' : 'Sequence complete.');
+  isPlaying = false; stopRequested = false; setPlayUI(false); updateSequenceUI();
+}
+function applyPose(p) {
+  servoState.forEach(s => { if (s.enabled && p.angles[s.pin] !== undefined) setServoAngle(s.id, p.angles[s.pin]); });
+}
+
+// ---------- block editor popup ----------
+function openBlockEditor(uid) {
+  const b = sequence.find(x => x.uid === uid);
+  if (!b) return;
+  if (b.type === 'pose') openPoseEditor(b.poseId);
+  else { editor = { type: 'delay', target: b, snapshot: JSON.parse(JSON.stringify(b)), live: false }; renderEditor(); $('editor-modal').classList.add('open'); }
+}
+function openPoseEditor(poseId) {
+  const p = poseObj(poseId);
+  if (!p) return;
+  servoState.forEach(s => { p.angles[s.pin] = clamp(p.angles[s.pin] === undefined ? s.angle : p.angles[s.pin], s.min, s.max); });
+  editor = { type: 'pose', target: p, snapshot: JSON.parse(JSON.stringify(p)), live: false };
+  renderEditor();
+  $('editor-modal').classList.add('open');
+}
+function closeEditor() {
+  editor = null;
+  $('editor-modal').classList.remove('open');
+  updateSequenceUI(); renderStorage();
+}
+
+function renderEditor() {
+  if (!editor) return;
+  const b = editor.target;
+  const body = $('editor-body'), foot = $('editor-actions'), dlg = $('editor-dialog');
+
+  if (editor.type === 'pose') {
+    const c4 = editorCols === 4;
+    dlg.classList.toggle('wide', c4);
+    $('editor-icon').textContent = '📷';
+    $('editor-title').value = b.name;
+    const order = [...servoState].sort((x, y) => x.pin - y.pin);
+    body.innerHTML = `
+      <div class="d-tools">
+        <span class="xs dim">Drag a slider or type an angle. Changes save automatically (rename poses in Pose Storage).</span>
+        <span class="row"><span class="xs dim">Layout</span>
+          <span class="seg"><button class="${c4 ? '' : 'on'}" onclick="setCols(1)" title="One column">1 col</button><button class="${c4 ? 'on' : ''}" onclick="setCols(4)" title="Four columns">4 col</button></span></span>
+      </div>
+      <div class="ed-grid ${c4 ? 'c4' : ''}">${order.map(s => {
+        const v = b.angles[s.pin], changed = v !== editor.snapshot.angles[s.pin];
+        return `<div class="ed-row ${s.enabled ? '' : 'off'} ${changed ? 'changed' : ''}" id="edrow-${s.pin}">
+          <div class="ed-head"><span class="pin">Pin ${s.pin}</span><span class="nm">${esc(s.label)}${s.enabled ? '' : ' (off)'}</span><span class="chip ${changed ? '' : 'hidden'}" id="edchg-${s.pin}">edited</span></div>
+          <div class="ed-ctl"><button onclick="nudge(${s.pin},-1)">−</button>
+            <input type="range" id="edr-${s.pin}" min="${s.min}" max="${s.max}" value="${v}" oninput="editPoseAngle(${s.pin}, this.value)">
+            <button onclick="nudge(${s.pin},1)">+</button></div>
+          <div class="ed-num"><input type="number" id="edn-${s.pin}" min="${s.min}" max="${s.max}" value="${v}" onchange="editPoseAngle(${s.pin}, this.value)"> °
+            <span>limit ${s.min}–${s.max}°</span></div>
+        </div>`; }).join('')}</div>`;
+    foot.innerHTML = `
+      <button class="btn btn-green" onclick="editorUpdate()" title="Send this pose to the servos one time">➤ Update</button>
+      <button class="btn btn-ghost" onclick="toggleLive()" title="While on, the servos follow the sliders as you drag"><span class="toggle-pill ${editor.live ? 'on' : ''}"></span>Live</button>
+      <button class="btn btn-ghost" onclick="editorUndo()" title="Put the values back to how they were when you opened this popup">↺ Undo</button>
+      <button class="btn btn-ghost" onclick="editorPhysical()" title="Copy the positions currently applied on the real servos into this pose">✋ Physical</button>
+      <button class="btn btn-brand" style="margin-left:auto" onclick="closeEditor()">Done</button>`;
+  } else {
+    dlg.classList.remove('wide');
+    $('editor-icon').textContent = '⏱';
+    $('editor-title').value = 'Delay';
+    body.innerHTML = `
+      <div class="field">Wait time
+        <div class="row"><input type="number" id="delay-ms" min="0" step="50" value="${b.ms}" style="width:120px;font-size:15px" oninput="editDelay(this.value)"><span>ms</span></div></div>
+      <div class="row"><span class="xs dim">Quick pick</span>${[100, 250, 500, 1000, 2000, 5000].map(v => `<button class="btn btn-sm btn-ghost" onclick="setDelay(${v})">${v}ms</button>`).join('')}</div>`;
+    foot.innerHTML = `
+      <button class="btn btn-ghost" onclick="editorUndo()" title="Restore the time from when you opened this popup">↺ Undo</button>
+      <button class="btn btn-brand" style="margin-left:auto" onclick="closeEditor()">Done</button>`;
+  }
+}
+
+function setCols(n) { editorCols = n; renderEditor(); }
+
+function syncEditorRow(pin) {
+  const v = editor.target.angles[pin];
+  const r = $('edr-' + pin), n = $('edn-' + pin);
+  if (r) r.value = v;
+  if (n) n.value = v;
+  const changed = v !== editor.snapshot.angles[pin];
+  const row = $('edrow-' + pin), chip = $('edchg-' + pin);
+  if (row) row.classList.toggle('changed', changed);
+  if (chip) chip.classList.toggle('hidden', !changed);
+}
+function editPoseAngle(pin, v) {
+  if (!editor || editor.type !== 'pose') return;
+  const p = editor.target, s = servoByPin(pin);
+  if (!s || isNaN(parseInt(v))) return;
+  const nv = clamp(parseInt(v), s.min, s.max);
+  if (nv !== p.angles[pin]) { p.angles[pin] = nv; markDirty(p.id); }
+  syncEditorRow(pin);
+  if (editor.live && s.enabled) setServoAngle(s.id, nv);
+}
+function nudge(pin, d) { editPoseAngle(pin, editor.target.angles[pin] + d); }
+
+function editDelay(v) { if (editor && editor.type === 'delay') editor.target.ms = Math.max(0, parseInt(v) || 0); }
+function setDelay(v) { editDelay(v); renderEditor(); }
+
+function editorUpdate() {
+  if (!editor || editor.type !== 'pose') return;
+  applyPose(editor.target);
+  logTerminal(`"${editor.target.name}" sent to servos.`);
+}
+function toggleLive() {
+  editor.live = !editor.live;
+  if (editor.live) applyPose(editor.target);
+  renderEditor();
+  logTerminal('Live update ' + (editor.live ? 'ON' : 'OFF') + '.');
+}
+function editorUndo() {
+  if (!editor) return;
+  const snap = JSON.parse(JSON.stringify(editor.snapshot));
+  if (editor.type === 'pose') { editor.target.angles = snap.angles; if (editor.live) applyPose(editor.target); }
+  else editor.target.ms = snap.ms;
+  renderEditor();
+}
+function editorPhysical() {
+  if (!editor || editor.type !== 'pose') return;
+  servoState.forEach(s => { editor.target.angles[s.pin] = s.angle; });
+  markDirty(editor.target.id);
+  renderEditor();
+  logTerminal('Copied current physical positions into the pose.');
+}
+
+// ---------- WebSerial + device detection ----------
+// Firmware prints:  HELLO mode=<0|1> name=<ROBOT|CONTROLLER> cfg=<id> mac=<AA:BB:..>
+// at boot and whenever it receives "?".   mode 0 = robot ESP32, mode 1 = controller ESP32.
+async function toggleWebSerial() {
+  if (!('serial' in navigator)) { alert('WebSerial is not supported in this browser. Use Chrome, Edge or Opera.'); return; }
+  if (serialPort) { await disconnectSerial(); return; }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    serialWriter = serialPort.writable.getWriter();
+    deviceInfo = null; setDeviceBadge(null);
+    updateSerialUI(true);
+    logTerminal('Connected via WebSerial (115200 baud). Asking the board to identify itself...');
+    startReadLoop();
+    requestHello(0);
+  } catch (err) {
+    serialPort = null; serialWriter = null;
+    logTerminal('WebSerial error: ' + err.message);
+  }
+}
+
+async function disconnectSerial() {
+  clearTimeout(helloTimer);
+  try { if (serialReader) await serialReader.cancel(); } catch (e) {}
+  try { await readDone; } catch (e) {}
+  try { if (serialWriter) serialWriter.releaseLock(); } catch (e) {}
+  try { await serialPort.close(); } catch (e) {}
+  serialPort = null; serialWriter = null; serialReader = null; deviceInfo = null;
+  setDeviceBadge(null); closeDevice(); updateSerialUI(false);
+  logTerminal('Disconnected from serial port.');
+}
+
+function startReadLoop() {
+  const port = serialPort;
+  readDone = (async () => {
+    const dec = new TextDecoder();
+    let buf = '';
+    try {
+      serialReader = port.readable.getReader();
+      while (true) {
+        const { value, done } = await serialReader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) { handleDeviceLine(buf.slice(0, i).trim()); buf = buf.slice(i + 1); }
+      }
+    } catch (e) {
+      if (serialPort === port) logTerminal('Serial read error: ' + e.message);
+    } finally {
+      try { serialReader.releaseLock(); } catch (e) {}
+    }
+  })();
+}
+
+async function sendRaw(text) {
+  if (!serialWriter) return;
+  try { await serialWriter.write(new TextEncoder().encode(text)); }
+  catch (err) { logTerminal('TX error: ' + err.message); }
+}
+
+function requestHello(attempt) {
+  // boards often reset when the port opens, so wait before asking; retry a couple of times
+  helloTimer = setTimeout(async () => {
+    if (!serialPort || deviceInfo) return;
+    if (attempt >= 3) { showDeviceModal(null); return; }
+    await sendRaw('?\n');
+    requestHello(attempt + 1);
+  }, attempt === 0 ? 1300 : 1500);
+}
+
+function parseHello(line) {
+  const kv = {};
+  line.replace(/^HELLO\s*/, '').split(/\s+/).forEach(t => { const i = t.indexOf('='); if (i > 0) kv[t.slice(0, i)] = t.slice(i + 1); });
+  return { mode: parseInt(kv.mode), name: kv.name || '', cfg: kv.cfg || '', mac: (kv.mac || '').toUpperCase() };
+}
+
+function handleDeviceLine(line) {
+  if (!line) return;
+  if (line.startsWith('HELLO')) {
+    const info = parseHello(line);
+    const first = !deviceInfo;
+    deviceInfo = info;
+    setDeviceBadge(info);
+    logTerminal('RX <- ' + line);
+    if (first) {
+      clearTimeout(helloTimer);
+      if (cfg.esp.dual && MODE_NAMES[info.mode]) { prepView = info.mode === 1 ? 'ctrl' : 'robot'; renderPrepare(); }
+      showDeviceModal(info);
+    }
+    return;
+  }
+  logTerminal('RX <- ' + line);
+}
+
+const MODE_NAMES = { 0: ['🤖', 'Robot'], 1: ['🎮', 'Controller'] };
+function setDeviceBadge(info) {
+  const b = $('device-badge');
+  if (!info || !MODE_NAMES[info.mode]) { b.classList.add('hidden'); return; }
+  b.textContent = `${MODE_NAMES[info.mode][0]} ${MODE_NAMES[info.mode][1]} (mode ${info.mode})`;
+  b.classList.remove('hidden');
+}
+
+function configStatus(info) {
+  const role = info.mode;
+  const cur = currentConfig('current');
+  const expected = cfgId(role, cur), defId = cfgId(role, validateConfig(DEFAULT_CONFIG));
+  const out = [];
+  if (!info.cfg) out.push(['warn', 'This firmware does not report a config id (older firmware). Flash the code from the Prepare tab to get config checking.']);
+  else if (info.cfg === expected && expected !== defId) out.push(['ok', 'The firmware config matches the config loaded in the web.']);
+  else if (info.cfg === expected) out.push(['ok', 'The firmware is using the default config, and the web is too, so they match.']);
+  else if (info.cfg === defId) out.push(['warn', 'The device is running the DEFAULT config. Your config has not been flashed yet: copy the code from the Prepare tab and flash it.']);
+  else out.push(['warn', 'The device was flashed with a different config than the one loaded in the web. Flash the code from the Prepare tab, or choose the config file that matches this firmware.']);
+  if (expected === defId) out.push(['info', 'No custom config is loaded in the web: it is using the built-in default config.']);
+  return out;
+}
+
+function showDeviceModal(info) {
+  let html;
+  if (!info) {
+    html = `<div class="sbox warn"><b>The board did not identify itself.</b><br>It may be running firmware without device detection, or a different baud rate (this page uses 115200). Servo control may still work. Flash the code from the Prepare tab to enable mode and config detection.</div>`;
+    $('device-title').textContent = 'Unknown device';
+  } else if (!MODE_NAMES[info.mode]) {
+    html = `<div class="sbox warn">The board reported an unknown mode: <b>${esc(info.mode)}</b>.</div>`;
+    $('device-title').textContent = 'Unknown device mode';
+  } else {
+    const [icon, nm] = MODE_NAMES[info.mode];
+    $('device-title').textContent = `${icon} ${nm} detected`;
+    const desc = info.mode === 0
+      ? 'This ESP32 drives the PCA9685 and the servos. Commands from this page move the servos directly.'
+      : 'This ESP32 is the wireless controller. Commands from this page are forwarded over ESP-NOW to the robot ESP32.';
+    html = `<div class="row" style="gap:10px"><span style="font-size:34px">${icon}</span><div><div style="font-size:16px;font-weight:700">${nm} — device mode ${info.mode}</div><div class="xs mute">${esc(desc)}</div></div></div>
+      <div class="kv"><span class="mute">Name</span><span>${esc(info.name || '–')}</span></div>
+      <div class="kv"><span class="mute">MAC</span><span>${esc(info.mac || '–')}</span></div>
+      <div class="kv"><span class="mute">Firmware config id</span><span>${esc(info.cfg || '–')}</span></div>` +
+      configStatus(info).map(([cls, t]) => `<div class="sbox ${cls}">${cls === 'ok' ? '✔' : cls === 'warn' ? '⚠' : 'ℹ'} ${esc(t)}</div>`).join('');
+    if (info.mac && /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(info.mac)) {
+      html += `<button class="btn btn-ghost" onclick="rememberMac()">Use this MAC as the ${info.mode === 0 ? 'Robot' : 'Controller'} MAC in the ESP config</button>`;
+    }
+  }
+  $('device-body').innerHTML = html;
+  $('device-modal').classList.add('open');
+}
+function closeDevice() { $('device-modal').classList.remove('open'); }
+function rememberMac() {
+  if (!deviceInfo) return;
+  setEsp(deviceInfo.mode === 0 ? 'robotMac' : 'ctrlMac', deviceInfo.mac);
+  closeDevice();
+}
+
+function updateSerialUI(on) {
+  $('connect-btn').className = 'btn ' + (on ? 'btn-rose' : 'btn-green');
+  $('connect-text').textContent = on ? 'Disconnect Serial' : 'Connect WebSerial';
+}
+async function sendServoCommand(pin, angle) {
+  logTerminal(`TX -> pin [${pin}]: ${angle}° (${angleToTicks(angle)} ticks, ${angleToPulse(angle)}µs)`);
+  await sendRaw(`s ${pin} ${angle}\n`);
+}
+
+// ---------- terminal ----------
+function logTerminal(message) {
+  const term = $('terminal-out');
+  const e = document.createElement('div');
+  const t = document.createElement('span');
+  t.className = 'dim';
+  t.textContent = '[' + new Date().toLocaleTimeString().split(' ')[0] + '] ';
+  e.appendChild(t);
+  e.appendChild(document.createTextNode(message));
+  term.appendChild(e);
+  while (term.children.length > 300) term.removeChild(term.firstChild);
+  term.scrollTop = term.scrollHeight;
+}
+function clearTerminal() { $('terminal-out').innerHTML = '<div class="dim">// Terminal cleared.</div>'; }
+
+// ---------- prepare tab: wiring + ESP config + firmware ----------
+let currentBoard = 'esp32';
+function switchBoard(type) {
+  currentBoard = type;
+  $('btn-board-esp32').className = 'btn btn-sm' + (type === 'esp32' ? ' btn-brand' : '');
+  $('btn-board-uno').className = 'btn btn-sm' + (type === 'uno' ? ' btn-brand' : '');
+  renderBoardDiagram(type);
+}
+function renderBoardDiagram(board) {
+  const esp = board === 'esp32', e = cfg.esp;
+  const sda = esp ? `GPIO ${e.sda}` : 'Pin A4', scl = esp ? `GPIO ${e.scl}` : 'Pin A5';
+  $('sda-pin-text').textContent = `${sda} (${esp ? 'ESP32' : 'Arduino Uno'})`;
+  $('scl-pin-text').textContent = `${scl} (${esp ? 'ESP32' : 'Arduino Uno'})`;
+  $('tbl-sda').textContent = `GPIO ${e.sda}`;
+  $('tbl-scl').textContent = `GPIO ${e.scl}`;
+  const rows = esp
+    ? [['amber', '3.3V / VIN', '3.3V logic power'], ['mute', 'GND', 'Common ground'], ['', sda, 'SDA line'], ['green', scl, 'SCL line']]
+    : [['amber', '5V', '5V logic power'], ['mute', 'GND', 'Common ground'], ['', sda, 'SDA line'], ['green', scl, 'SCL line']];
+  $('board-diagram').innerHTML = rows.map(r => `<div class="kv"><span class="${r[0]}" ${r[0] === '' ? 'style="color:#22d3ee"' : ''}>${r[1]}</span><span>${r[2]}</span></div>`).join('');
+  if (!esp) $('board-diagram').insertAdjacentHTML('beforeend', '<div class="xs dim">The generated firmware is for ESP32 only.</div>');
+}
+
+let prepView = 'robot';
+function setPrepView(v) { prepView = v; renderPrepare(); }
+
+function renderPrepare() {
+  const e = cfg.esp, c = currentConfig('current');
+  if (!e.dual) prepView = 'robot';
+  $('esp-dual').checked = e.dual;
+  $('esp-sda').value = e.sda; $('esp-scl').value = e.scl;
+  $('esp-channel').value = e.channel; $('esp-robot-mac').value = e.robotMac; $('esp-ctrl-mac').value = e.ctrlMac;
+  $('esp-dual-fields').classList.toggle('hidden', !e.dual);
+  $('prep-switch').classList.toggle('hidden', !e.dual);
+  $('prep-btn-robot').className = prepView === 'robot' ? 'on' : '';
+  $('prep-btn-ctrl').className = prepView === 'ctrl' ? 'on' : '';
+  $('prep-robot').classList.toggle('hidden', prepView !== 'robot');
+  $('prep-ctrl').classList.toggle('hidden', prepView !== 'ctrl');
+  $('mac-warn').classList.toggle('hidden', !(e.dual && e.robotMac === ZERO_MAC));
+  $('robot-fw-title').textContent = e.dual ? 'Robot ESP32 firmware (device mode 0)' : 'ESP32 firmware (device mode 0: robot)';
+  $('robot-cfg-id').textContent = 'config id ' + cfgId(0, c);
+  $('ctrl-cfg-id').textContent = 'config id ' + cfgId(1, c);
+  $('code-display').textContent = robotFirmware();
+  $('code-display-ctrl').textContent = controllerFirmware();
+}
+
+const macBytes = (m) => m.split(':').map(x => '0x' + x).join(', ');
+
+// shared C++ helper that prints the HELLO line (device mode + config id + MAC)
+function helloCode(mode, name, id) {
+  return `#define DEVICE_MODE ${mode}   // 0 = robot, 1 = controller
+#define DEVICE_NAME "${name}"
+#define CFG_ID      "${id}"   // id of the config baked into this code
+
+void printHello() {
+  uint64_t c = ESP.getEfuseMac();
+  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+                DEVICE_MODE, DEVICE_NAME, CFG_ID,
+                (uint8_t)(c >> 40), (uint8_t)(c >> 32), (uint8_t)(c >> 24),
+                (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+}`;
+}
+
+const SERIAL_LOOP = `String line;
+
+void loop() {
+  while (Serial.available()) {
+    char ch = Serial.read();
+    if (ch == '\\n') { handleLine(line); line = ""; }
+    else if (ch != '\\r') { line += ch; if (line.length() > 40) line = ""; }
+  }
+}`;
+
+function robotFirmware() {
+  const c = currentConfig('current'), e = c.esp, dual = e.dual;
+  const lo = Array(16).fill(0), hi = Array(16).fill(180);
+  servoState.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
+  const link = dual ? `
+// ---- ESP-NOW link (wireless commands from the controller ESP32) ----
+#define ESPNOW_CHANNEL ${e.channel}
+const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept any sender
+typedef struct { uint8_t pin; uint8_t angle; } ServoMsg;
+
+// One signature for every ESP32 core version (the Arduino sketch preprocessor ignores #if around
+// function signatures, which breaks builds on some cores). The first argument is read per core version.
+void onRecv(const void *info, const uint8_t *data, int len) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  const uint8_t *src = ((const esp_now_recv_info_t *)info)->src_addr;
+#else
+  const uint8_t *src = (const uint8_t *)info;
+#endif
+  if (len != sizeof(ServoMsg)) return;
+  bool anySender = true;
+  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) anySender = false;
+  if (!anySender && memcmp(src, CONTROLLER_MAC, 6) != 0) return;
+  ServoMsg m;
+  memcpy(&m, data, sizeof(m));
+  moveServo(m.pin, m.angle);
+}
+` : '';
+  const linkSetup = dual ? `
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  if (esp_now_init() == ESP_OK) esp_now_register_recv_cb((esp_now_recv_cb_t)onRecv);
+  else Serial.println("ERR espnow init failed");
+` : '';
+
+  return `/*
+ * PCA9685 Robot Firmware (ESP32) - DEVICE MODE 0 (ROBOT)
+ * Generated by PCA9685 Control Studio.
+ * Library needed: "Adafruit PWM Servo Driver Library"
+ * Serial (115200):  "s <pin> <angle>"  moves a servo,  "?"  makes the board identify itself.
+ */
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+${dual ? '#include <WiFi.h>\n#include <esp_now.h>\n#include <esp_wifi.h>\n' : ''}
+${helloCode(0, 'ROBOT', cfgId(0, c))}
+
+#define SDA_PIN ${e.sda}
+#define SCL_PIN ${e.scl}
+#define SERVO_FREQ 50
+#define SERVOMIN ${c.servomin}   // pulse count (out of 4096) at 0 degrees
+#define SERVOMAX ${c.servomax}   // pulse count (out of 4096) at 180 degrees
+
+// Allowed angle range per PCA9685 pin (from your servo config)
+const int LIM_MIN[16] = {${lo.join(', ')}};
+const int LIM_MAX[16] = {${hi.join(', ')}};
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();   // I2C address 0x40
+
 int angleToTicks(int angle) {
   return map(angle, 0, 180, SERVOMIN, SERVOMAX);
 }
 
-void loop() {
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\\n');
-    input.trim();
-    
-    // Command format: "s <channel> <angle>"
-    if (input.startsWith("s ")) {
-      int firstSpace = input.indexOf(' ');
-      int secondSpace = input.indexOf(' ', firstSpace + 1);
-      
-      if (firstSpace != -1 && secondSpace != -1) {
-        int channel = input.substring(firstSpace + 1, secondSpace).toInt();
-        int angle = input.substring(secondSpace + 1).toInt();
-        
-        if (channel >= 0 && channel <= 15 && angle >= 0 && angle <= 180) {
-          int ticks = angleToTicks(angle);
-          pwm.setPWM(channel, 0, ticks);
-          Serial.print("OK: Servo ");
-          Serial.print(channel);
-          Serial.print(" set to ");
-          Serial.println(angle);
-        }
-      }
-    }
+void moveServo(int pin, int angle) {
+  if (pin < 0 || pin > 15) return;
+  angle = constrain(angle, LIM_MIN[pin], LIM_MAX[pin]);
+  pwm.setPWM(pin, 0, angleToTicks(angle));
+}
+${link}
+void handleLine(String s) {
+  s.trim();
+  if (s == "?" || s == "hello") { printHello(); return; }
+  if (s.startsWith("s ")) {
+    int sp = s.indexOf(' ', 2);
+    if (sp > 0) moveServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
   }
-}`;
+}
 
-    function showFirmware() {
-      document.getElementById('code-display').textContent = ESP32_FIRMWARE;
-    }
+void setup() {
+  Serial.begin(115200);
+  Wire.setPins(SDA_PIN, SCL_PIN);
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(10);
+${linkSetup}  printHello();
+}
 
-    function copyCode() {
-      const textarea = document.createElement('textarea');
-      textarea.value = ESP32_FIRMWARE;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      logTerminal("Firmware copied to clipboard!");
-    }
-  </script>
+${SERIAL_LOOP}
+`;
+}
+
+function controllerFirmware() {
+  const c = currentConfig('current'), e = c.esp;
+  return `/*
+ * Controller Firmware (ESP32) - DEVICE MODE 1 (CONTROLLER)
+ * Generated by PCA9685 Control Studio.
+ * Plug this board into your PC (USB). Commands from the web page ("s <pin> <angle>")
+ * are forwarded over ESP-NOW to the robot ESP32. The robot applies the servo limits.
+ */
+#include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+
+${helloCode(1, 'CONTROLLER', cfgId(1, c))}
+
+#define ESPNOW_CHANNEL ${e.channel}
+const uint8_t ROBOT_MAC[6] = {${macBytes(e.robotMac)}};   // MAC of the robot ESP32
+typedef struct { uint8_t pin; uint8_t angle; } ServoMsg;
+
+void sendServo(int pin, int angle) {
+  if (pin < 0 || pin > 15) return;
+  ServoMsg m = { (uint8_t)pin, (uint8_t)constrain(angle, 0, 180) };
+  esp_err_t r = esp_now_send(ROBOT_MAC, (const uint8_t *)&m, sizeof(m));
+  if (r != ESP_OK) Serial.printf("ERR espnow send %d\\n", (int)r);
+}
+
+void handleLine(String s) {
+  s.trim();
+  if (s == "?" || s == "hello") { printHello(); return; }
+  if (s.startsWith("s ")) {
+    int sp = s.indexOf(' ', 2);
+    if (sp > 0) sendServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  if (esp_now_init() != ESP_OK) { Serial.println("ERR espnow init failed"); }
+  else {
+    esp_now_peer_info_t peer;
+    memset(&peer, 0, sizeof(peer));
+    memcpy(peer.peer_addr, ROBOT_MAC, 6);
+    peer.channel = ESPNOW_CHANNEL;
+    peer.encrypt = false;
+    if (esp_now_add_peer(&peer) != ESP_OK) Serial.println("ERR add peer failed");
+  }
+  printHello();
+}
+
+${SERIAL_LOOP}
+`;
+}
+
+function copyCode(which) {
+  const text = which === 'ctrl' ? controllerFirmware() : robotFirmware();
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  logTerminal((which === 'ctrl' ? 'Controller' : 'Robot') + ' firmware copied to clipboard.');
+}
+
+</script>
 </body>
 </html>
