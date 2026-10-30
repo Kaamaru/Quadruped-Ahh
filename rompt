@@ -1,7 +1,0 @@
-ok so when the esp recieved serial input from the web it will return it's mode
-so the web knows which one it is (idk ur approach if its better thaen dont change, just awnna mke sure)
-you get the controller idea right?
-the same things but just that the controller esp is controlling with the wireless protocol
-
-so what we must have for code is that it is in the prepare tab and inside the page will have a switch to control or robot
-each page will contain it's own code parts

@@ -178,6 +178,10 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
 .sbox.info{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);color:#bae6fd}
 .badge{font-size:12px;font-weight:600;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.45);color:var(--brand);border-radius:99px;padding:5px 12px}
 .pg{display:flex;flex-direction:column;gap:20px}
+.fusion{display:grid;grid-template-columns:minmax(300px,1.5fr) minmax(260px,1fr);gap:16px;align-items:start}
+@media(max-width:900px){.fusion{grid-template-columns:1fr}}
+#fusion-canvas,#cal-canvas{width:100%;height:320px;background:rgba(15,23,42,.7);border:1px solid var(--line);border-radius:12px;display:block}
+input[type=checkbox]{accent-color:#0ea5e9}
 </style>
 </head>
 <body>
@@ -192,6 +196,7 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
       <span id="cfg-chip" class="chip" title="Active servo config" style="font-size:11px;padding:4px 10px"></span>
       <nav>
         <button id="nav-gui" class="active" onclick="switchTab('gui')">Control Studio</button>
+        <button id="nav-calibrate" onclick="switchTab('calibrate')">Calibrate</button>
         <button id="nav-prepare" onclick="switchTab('prepare')">Prepare</button>
         <button id="nav-settings" onclick="switchTab('settings')">Settings</button>
       </nav>
@@ -261,6 +266,31 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
     </div>
   </div>
 
+  <div class="card" id="fusion-card">
+    <div class="row between" style="margin-bottom:10px">
+      <div><h3>Orientation (sensor fusion)</h3><span class="xs dim">MPU6050 + compass shown in 3D. Data can come from the robot, the controller, or both.</span></div>
+      <span class="seg"><button id="fs-r" onclick="setFusionView('r')">🤖 Robot</button><button id="fs-c" onclick="setFusionView('c')">🎮 Controller</button><button id="fs-both" class="on" onclick="setFusionView('both')">Both</button></span>
+    </div>
+    <div class="fusion">
+      <canvas id="fusion-canvas"></canvas>
+      <div class="stack">
+        <div id="fusion-readout" class="stack"></div>
+        <div class="hr"></div>
+        <label class="row sm" style="gap:8px;cursor:pointer" title="Starts / stops the orientation stream of the controller you are connected to"><span class="switch"><input id="fusion-stream" type="checkbox" onchange="toggleFusionStream(this.checked)"><span></span></span>Controller orientation stream</label>
+        <span id="fusion-hint" class="xs dim"></span>
+        <div class="row">
+          <button class="btn btn-ghost btn-sm" onclick="zeroView()" title="Treat the current pose as 'flat, facing forward'">Zero view</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearZero()">Reset zero</button>
+          <button id="fusion-calib" class="btn btn-ghost btn-sm" onclick="calibrateGyro()" title="Recalibrate the gyro of the connected board. Keep it still.">Calibrate gyro</button>
+        </div>
+        <div class="row xs mute" title="If the 3D model turns the wrong way around an axis, invert that axis">Invert rotation:
+          <label><input type="checkbox" onchange="setFusionInvert('x',this.checked)"> X</label>
+          <label><input type="checkbox" onchange="setFusionInvert('y',this.checked)"> Y</label>
+          <label><input type="checkbox" onchange="setFusionInvert('z',this.checked)"> Z</label></div>
+      </div>
+    </div>
+  </div>
+
   <div class="row between">
     <h3 style="margin:0;font-size:14px">Servos <span class="dim" style="font-weight:400">(<span id="servo-count">8</span>/16 pins used)</span></h3>
     <button id="add-servo-btn" class="btn btn-brand" onclick="addServo()">＋ Add Servo</button>
@@ -273,6 +303,35 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
       <button class="icon-btn" style="color:var(--mute)" onclick="clearTerminal()">Clear Log</button>
     </div>
     <div id="terminal-out" class="term mono"><div class="dim">// PCA9685 Control Studio initialized.</div></div>
+  </div>
+</section>
+
+<!-- ===== CALIBRATE (gyro + compass) ===== -->
+<section id="tab-calibrate" class="hidden">
+  <div class="card">
+    <h2>Calibration</h2>
+    <p class="note" style="margin:4px 0 0">Calibrate the board you are connected to (robot or controller, over its own USB). <span id="cal-board" class="brand"></span></p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:4px">1. Gyro</h3>
+    <p class="note" style="margin:0 0 10px">Put the board on a table and do not touch it for 2 seconds. The gyro is also calibrated automatically at every boot, so this is only needed if you moved the board while it started.</p>
+    <div class="row"><button id="gyro-btn" class="btn btn-brand" onclick="gyroCalibrate()">Calibrate gyro now</button><span id="gyro-status" class="sm"></span></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:4px">2. Compass</h3>
+    <p class="note" style="margin:0 0 10px">Keep the board away from servos, magnets and metal. Press Start, then slowly tumble the board through every orientation (like drawing a figure eight and turning it upside down) until the plots below become round circles around the centre and the check turns green. Then press <b>Save</b>: the offsets go into Settings and are used right away. Re-flash from the Prepare tab to keep them after a reboot.</p>
+    <div class="row" style="margin-bottom:12px">
+      <button id="cal-start" class="btn btn-green" onclick="calStart()">▶ Start compass calibration</button>
+      <button id="cal-stop" class="btn btn-ghost" onclick="calStop()">■ Stop</button>
+      <button class="btn btn-ghost" onclick="calReset()">Clear samples</button>
+      <button id="cal-save" class="btn btn-brand" style="margin-left:auto" onclick="calSave()">💾 Save offsets to Settings</button>
+    </div>
+    <div class="fusion">
+      <canvas id="cal-canvas"></canvas>
+      <div id="cal-info" class="stack"></div>
+    </div>
   </div>
 </section>
 
@@ -383,6 +442,15 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
       </div>
     </div>
 
+    <div id="ctrl-i2c-card" class="card">
+      <h3 style="margin-bottom:4px">Controller ESP32 config</h3>
+      <p class="note" style="margin:0 0 12px">I2C pins of the controller's MPU6050 and compass (only used while the controller's sensor fusion is on in Settings).</p>
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">I2C SDA pin<input id="esp-csda" type="number" min="0" max="39" style="width:90px" onchange="setEsp('csda',this.value)"></label>
+        <label class="field">I2C SCL pin<input id="esp-cscl" type="number" min="0" max="39" style="width:90px" onchange="setEsp('cscl',this.value)"></label>
+      </div>
+    </div>
+
     <div class="card">
       <div class="row between" style="margin-bottom:8px">
         <div><h3>Controller ESP32 firmware (device mode 1)</h3><span id="ctrl-cfg-id" class="xs dim mono"></span></div>
@@ -431,6 +499,27 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
       <tbody id="limits-body"></tbody>
     </table></div>
   </div>
+
+  <div class="card">
+    <h2>Firmware options</h2>
+    <p class="note" style="margin:4px 0 14px">These become fixed settings in the generated code (Prepare tab). Re-flash the board after changing them. They are saved in your config file too.</p>
+    <div class="split">
+      <div class="panel stack">
+        <b class="sm">🤖 Robot</b>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-robot-verbose" type="checkbox" onchange="setFw('robotVerbose',this.checked)"><span></span></span>Verbose debug output (Serial)</label>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-robot-fusion" type="checkbox" onchange="setFw('robotFusion',this.checked)"><span></span></span>Sensor fusion (MPU6050 + compass), always streaming</label>
+        <span class="xs dim">Compass offsets (calibration)</span>
+        <div class="row"><label class="field">X<input id="fw-rmag-0" type="number" step="any" style="width:90px" onchange="setMag('r',0,this.value)"></label><label class="field">Y<input id="fw-rmag-1" type="number" step="any" style="width:90px" onchange="setMag('r',1,this.value)"></label><label class="field">Z<input id="fw-rmag-2" type="number" step="any" style="width:90px" onchange="setMag('r',2,this.value)"></label></div>
+      </div>
+      <div class="panel stack">
+        <b class="sm">🎮 Controller</b>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-ctrl-verbose" type="checkbox" onchange="setFw('ctrlVerbose',this.checked)"><span></span></span>Verbose debug output (Serial)</label>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-ctrl-fusion" type="checkbox" onchange="setFw('ctrlFusion',this.checked)"><span></span></span>Include sensor fusion (switch the stream on/off in the web page)</label>
+        <span class="xs dim">Compass offsets (calibration)</span>
+        <div class="row"><label class="field">X<input id="fw-cmag-0" type="number" step="any" style="width:90px" onchange="setMag('c',0,this.value)"></label><label class="field">Y<input id="fw-cmag-1" type="number" step="any" style="width:90px" onchange="setMag('c',1,this.value)"></label><label class="field">Z<input id="fw-cmag-2" type="number" step="any" style="width:90px" onchange="setMag('c',2,this.value)"></label></div>
+      </div>
+    </div>
+  </div>
 </section>
 
 </main>
@@ -471,7 +560,7 @@ const ZERO_MAC = '00:00:00:00:00:00';
 // servomin/servomax = PCA9685 pulse ticks (out of 4096 at 50Hz) for 0° and 180°.
 const DEFAULT_CONFIG = {
   name: DEFAULT_PROFILE,
-  version: 2,
+  version: 3,
   servomin: 125,
   servomax: 540,
   servos: [
@@ -485,10 +574,14 @@ const DEFAULT_CONFIG = {
     { pin: 7, label: "Aux Servo 7",      min: 0, max: 180 }
   ],
   // ESP32 settings: dual = use 2 boards (robot + controller linked with ESP-NOW)
-  esp: { dual: false, channel: 1, robotMac: ZERO_MAC, ctrlMac: ZERO_MAC, sda: 21, scl: 22 }
+  esp: { dual: false, channel: 1, robotMac: ZERO_MAC, ctrlMac: ZERO_MAC, sda: 21, scl: 22, csda: 21, cscl: 22 },
+  // Firmware options written into the generated code (verbose Serial debug, sensor fusion, compass offsets)
+  fw: { robotVerbose: false, ctrlVerbose: false, robotFusion: true, ctrlFusion: true,
+        robotMag: [-50, -100, -60], ctrlMag: [-50, -100, -60] }
 };
 
-let cfg = { servomin: DEFAULT_CONFIG.servomin, servomax: DEFAULT_CONFIG.servomax, esp: { ...DEFAULT_CONFIG.esp } };
+let cfg = { servomin: DEFAULT_CONFIG.servomin, servomax: DEFAULT_CONFIG.servomax, esp: { ...DEFAULT_CONFIG.esp },
+             fw: { ...DEFAULT_CONFIG.fw, robotMag: [...DEFAULT_CONFIG.fw.robotMag], ctrlMag: [...DEFAULT_CONFIG.fw.ctrlMag] } };
 let nextId = 0;
 let servoState = DEFAULT_CONFIG.servos.map(e => ({ id: nextId++, label: e.label, angle: 90, enabled: true, pin: e.pin, min: e.min, max: e.max }));
 const S = (id) => servoState.find(s => s.id === id);
@@ -522,6 +615,7 @@ window.onload = function() {
   renderStorage();
   updateSequenceUI();
   initPalette();
+  startFusionLoop();
   renderBoardDiagram('esp32');
   logTerminal("Studio ready. No config file chosen: using the built-in default config (" + DEFAULT_PROFILE + ").");
 };
@@ -531,11 +625,12 @@ function refreshAll() {
   renderServoCards();
   renderSettings();
   renderPrepare();
+  renderFw();
   if (editor) renderEditor();
 }
 
 function switchTab(tab) {
-  ['gui', 'prepare', 'settings'].forEach(t => {
+  ['gui', 'calibrate', 'prepare', 'settings'].forEach(t => {
     $('tab-' + t).classList.toggle('hidden', t !== tab);
     $('nav-' + t).classList.toggle('active', t === tab);
   });
@@ -711,19 +806,35 @@ const MAC_RE = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
 function normEsp(e) {
   e = e || {};
   const num = (v, d) => (v === undefined || v === null || v === '' ? d : parseInt(v));
-  const sda = num(e.sda, 21), scl = num(e.scl, 22), ch = num(e.channel, 1);
+  const sda = num(e.sda, 21), scl = num(e.scl, 22), csda = num(e.csda, 21), cscl = num(e.cscl, 22), ch = num(e.channel, 1);
   const rm = String(e.robotMac || ZERO_MAC).trim().toUpperCase();
   const cm = String(e.ctrlMac || ZERO_MAC).trim().toUpperCase();
-  if (!(sda >= 0 && sda <= 39 && scl >= 0 && scl <= 39 && sda !== scl)) throw new Error('ESP: SDA and SCL must be two different pins (0–39)');
+  const okPin = (v) => v >= 0 && v <= 39;
+  if (!(okPin(sda) && okPin(scl) && sda !== scl)) throw new Error('ESP: robot SDA and SCL must be two different pins (0–39)');
+  if (!(okPin(csda) && okPin(cscl) && csda !== cscl)) throw new Error('ESP: controller SDA and SCL must be two different pins (0–39)');
   if (!(ch >= 1 && ch <= 13)) throw new Error('ESP: WiFi channel must be 1–13');
   if (!MAC_RE.test(rm) || !MAC_RE.test(cm)) throw new Error('ESP: MAC addresses must look like AA:BB:CC:DD:EE:FF');
-  return { dual: !!e.dual, channel: ch, robotMac: rm, ctrlMac: cm, sda, scl };
+  return { dual: !!e.dual, channel: ch, robotMac: rm, ctrlMac: cm, sda, scl, csda, cscl };
+}
+
+// Firmware options that get written into the generated code
+function normFw(f) {
+  f = f || {};
+  const bool = (v, d) => (v === undefined ? d : !!v);
+  const mag = (m, d) => {
+    if (m === undefined) return d.slice();
+    if (!Array.isArray(m) || m.length !== 3 || m.some(x => !isFinite(parseFloat(x)))) throw new Error('fw: compass offsets need 3 numbers');
+    return m.map(x => parseFloat(x));
+  };
+  return { robotVerbose: bool(f.robotVerbose, false), ctrlVerbose: bool(f.ctrlVerbose, false),
+           robotFusion: bool(f.robotFusion, true), ctrlFusion: bool(f.ctrlFusion, true),
+           robotMag: mag(f.robotMag, [-50, -100, -60]), ctrlMag: mag(f.ctrlMag, [-50, -100, -60]) };
 }
 
 function currentConfig(name) {
-  return { name, version: 2, servomin: cfg.servomin, servomax: cfg.servomax,
+  return { name, version: 3, servomin: cfg.servomin, servomax: cfg.servomax,
     servos: [...servoState].sort((a, b) => a.pin - b.pin).map(s => ({ pin: s.pin, label: s.label, min: s.min, max: s.max })),
-    esp: { ...cfg.esp } };
+    esp: { ...cfg.esp }, fw: { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] } };
 }
 
 function validateConfig(c) {
@@ -740,7 +851,7 @@ function validateConfig(c) {
   const smin = c.servomin === undefined ? cfg.servomin : parseInt(c.servomin);
   const smax = c.servomax === undefined ? cfg.servomax : parseInt(c.servomax);
   if (!(smin >= 0 && smax <= 4095 && smin < smax)) throw new Error('servomin/servomax invalid');
-  return { name: String(c.name || ''), version: 2, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp) };
+  return { name: String(c.name || ''), version: 3, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp), fw: normFw(c.fw) };
 }
 
 function applyConfig(c) {
@@ -752,6 +863,7 @@ function applyConfig(c) {
              enabled: prev ? prev.enabled : true, pin: e.pin, min: e.min, max: e.max };
   });
   cfg.servomin = c.servomin; cfg.servomax = c.servomax; cfg.esp = { ...c.esp };
+  cfg.fw = { ...c.fw, robotMag: [...c.fw.robotMag], ctrlMag: [...c.fw.ctrlMag] };
   refreshAll();
   renderBoardDiagram(currentBoard);
   updateSequenceUI();
@@ -778,9 +890,12 @@ function fnv1a(str) {
 function bakedSpec(role, c) {
   const lo = Array(16).fill(0), hi = Array(16).fill(180);
   c.servos.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
-  const e = c.esp;
+  const e = c.esp, f = c.fw;
   const link = e.dual ? { dual: true, channel: e.channel, robotMac: e.robotMac, ctrlMac: e.ctrlMac } : { dual: false };
-  return role === 0 ? { role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link } : { role: 1, link };
+  if (role === 0) return { g: 3, role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link,
+    v: f.robotVerbose, fu: f.robotFusion, mag: f.robotFusion ? f.robotMag : null };
+  return { g: 3, role: 1, link, v: f.ctrlVerbose, fu: f.ctrlFusion, mag: f.ctrlFusion ? f.ctrlMag : null,
+    i2c: f.ctrlFusion ? [e.csda, e.cscl] : null };
 }
 function cfgId(role, c) { return fnv1a(JSON.stringify(bakedSpec(role, c))); }
 
@@ -1282,7 +1397,7 @@ async function disconnectSerial() {
   try { if (serialWriter) serialWriter.releaseLock(); } catch (e) {}
   try { await serialPort.close(); } catch (e) {}
   serialPort = null; serialWriter = null; serialReader = null; deviceInfo = null;
-  setDeviceBadge(null); closeDevice(); updateSerialUI(false);
+  setDeviceBadge(null); closeDevice(); updateSerialUI(false); fusionControlsState();
   logTerminal('Disconnected from serial port.');
 }
 
@@ -1318,7 +1433,7 @@ function requestHello(attempt) {
   // boards often reset when the port opens, so wait before asking; retry a couple of times
   helloTimer = setTimeout(async () => {
     if (!serialPort || deviceInfo) return;
-    if (attempt >= 3) { showDeviceModal(null); return; }
+    if (attempt >= 6) { showDeviceModal(null); return; }
     await sendRaw('?\n');
     requestHello(attempt + 1);
   }, attempt === 0 ? 1300 : 1500);
@@ -1327,11 +1442,16 @@ function requestHello(attempt) {
 function parseHello(line) {
   const kv = {};
   line.replace(/^HELLO\s*/, '').split(/\s+/).forEach(t => { const i = t.indexOf('='); if (i > 0) kv[t.slice(0, i)] = t.slice(i + 1); });
-  return { mode: parseInt(kv.mode), name: kv.name || '', cfg: kv.cfg || '', mac: (kv.mac || '').toUpperCase() };
+  return { mode: parseInt(kv.mode), name: kv.name || '', cfg: kv.cfg || '', mac: (kv.mac || '').toUpperCase(),
+           fusion: parseInt(kv.fusion) || 0, fstream: parseInt(kv.fstream) || 0, compass: parseInt(kv.compass) || 0 };
 }
 
 function handleDeviceLine(line) {
   if (!line) return;
+  if (line.startsWith('Q ')) { handleQuatLine(line); return; }
+  if (line.startsWith('M ')) { handleMagLine(line); return; }   // raw compass samples (calibration)
+  if (line.startsWith('FUSION calibrating')) cal.gyro = 'running';
+  if (line.startsWith('FUSION gyro calibrated')) cal.gyro = 'done';   // orientation data: not logged (too frequent)
   if (line.startsWith('HELLO')) {
     const info = parseHello(line);
     const first = !deviceInfo;
@@ -1342,6 +1462,8 @@ function handleDeviceLine(line) {
       clearTimeout(helloTimer);
       if (cfg.esp.dual && MODE_NAMES[info.mode]) { prepView = info.mode === 1 ? 'ctrl' : 'robot'; renderPrepare(); }
       showDeviceModal(info);
+      if (info.mode === 1 && info.fusion === 1 && fusionWant) sendRaw('f 1\n');   // start the controller's own orientation stream
+      fusionControlsState();
     }
     return;
   }
@@ -1387,7 +1509,8 @@ function showDeviceModal(info) {
     html = `<div class="row" style="gap:10px"><span style="font-size:34px">${icon}</span><div><div style="font-size:16px;font-weight:700">${nm} — device mode ${info.mode}</div><div class="xs mute">${esc(desc)}</div></div></div>
       <div class="kv"><span class="mute">Name</span><span>${esc(info.name || '–')}</span></div>
       <div class="kv"><span class="mute">MAC</span><span>${esc(info.mac || '–')}</span></div>
-      <div class="kv"><span class="mute">Firmware config id</span><span>${esc(info.cfg || '–')}</span></div>` +
+      <div class="kv"><span class="mute">Firmware config id</span><span>${esc(info.cfg || '–')}</span></div>
+      <div class="kv"><span class="mute">Sensor fusion</span><span>${['not built in', 'OK (MPU6050 found)', 'MPU6050 NOT found'][info.fusion] || '–'}</span></div>` +
       configStatus(info).map(([cls, t]) => `<div class="sbox ${cls}">${cls === 'ok' ? '✔' : cls === 'warn' ? '⚠' : 'ℹ'} ${esc(t)}</div>`).join('');
     if (info.mac && /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(info.mac)) {
       html += `<button class="btn btn-ghost" onclick="rememberMac()">Use this MAC as the ${info.mode === 0 ? 'Robot' : 'Controller'} MAC in the ESP config</button>`;
@@ -1473,91 +1596,272 @@ function renderPrepare() {
 }
 
 const macBytes = (m) => m.split(':').map(x => '0x' + x).join(', ');
+const cf = (x) => (Number.isInteger(x) ? x + '.0' : String(x));
 
-// shared C++ helper that prints the HELLO line (device mode + config id + MAC)
-function helloCode(mode, name, id) {
-  return `#define DEVICE_MODE ${mode}   // 0 = robot, 1 = controller
+function commonDefs(role, name, id, verbose) {
+  return `#define DEVICE_MODE ${role}   // 0 = robot, 1 = controller
 #define DEVICE_NAME "${name}"
 #define CFG_ID      "${id}"   // id of the config baked into this code
+#define VERBOSE     ${verbose ? 1 : 0}   // 1 = print debug info on Serial (set in the web Settings)
+#define LOG(...)    do { if (VERBOSE) Serial.printf(__VA_ARGS__); } while (0)`;
+}
+
+// HELLO line: device mode, config id, real STA MAC, sensor fusion state
+function helloFn(fusionBuilt, streamExpr) {
+  return `void macToStr(char *out) {   // out needs 18 bytes
+  uint8_t m[6];
+  esp_read_mac(m, ESP_MAC_WIFI_STA);
+  snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+}
 
 void printHello() {
-  uint64_t c = ESP.getEfuseMac();
-  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%02X:%02X:%02X:%02X:%02X:%02X\\n",
-                DEVICE_MODE, DEVICE_NAME, CFG_ID,
-                (uint8_t)(c >> 40), (uint8_t)(c >> 32), (uint8_t)(c >> 24),
-                (uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c);
+  char mac[18];
+  macToStr(mac);
+  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%s fusion=%d fstream=%d compass=%d\\n",
+                DEVICE_MODE, DEVICE_NAME, CFG_ID, mac, ${fusionBuilt ? 'fusionState' : '0'}, ${streamExpr}, ${fusionBuilt ? '(magOk ? 1 : 0)' : '0'});
 }`;
 }
 
-const SERIAL_LOOP = `String line;
-
-void loop() {
+const READ_SERIAL = `void readSerial() {
   while (Serial.available()) {
     char ch = Serial.read();
-    if (ch == '\\n') { handleLine(line); line = ""; }
-    else if (ch != '\\r') { line += ch; if (line.length() > 40) line = ""; }
+    if (ch == '\\n') {
+      handleLine(line);
+      line = "";
+    } else if (ch != '\\r') {
+      line += ch;
+      if (line.length() > 40) line = "";
+    }
   }
 }`;
 
+const FUSION_INCLUDES = '#include <Adafruit_MPU6050.h>\n#include <Adafruit_Sensor.h>\n#include <Adafruit_AHRS.h>';
+
+// MPU6050 + compass -> Mahony filter -> quaternion (follows your sensorfusion1.ino)
+function fusionBlock(mag) {
+  return `// ---- Sensor fusion: MPU6050 (0x68) + compass (0x2C) -> Mahony filter -> quaternion ----
+// Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"
+#define MAG_ADDR 0x2C
+#define I2C_CLOCK 400000       // faster I2C (400 kHz). Use 100000 if your wires are long or flaky.
+#define FUSION_EVERY 4         // filter runs at 100 Hz, one quaternion is sent every N samples (4 = 25 per second)
+// Compass hard-iron offsets: written by the web page (Calibrate tab -> Settings). "o x y z" changes them until reboot.
+float magOffX = ${cf(mag[0])};
+float magOffY = ${cf(mag[1])};
+float magOffZ = ${cf(mag[2])};
+bool magStream = false;        // raw compass stream for the web calibration page
+unsigned long lastMagStreamMs = 0;
+
+Adafruit_MPU6050 mpu;
+Adafruit_Mahony filter;
+bool magOk = false;
+int fusionState = 0;           // 0 = not started, 1 = OK, 2 = MPU6050 not found
+float gyroBiasX = 0, gyroBiasY = 0, gyroBiasZ = 0;
+unsigned long lastFusionUs = 0;
+int fusionTick = 0;
+float qW = 1, qX = 0, qY = 0, qZ = 0;
+
+bool readMagRaw(int16_t &rx, int16_t &ry, int16_t &rz) {
+  Wire.beginTransmission(MAG_ADDR);
+  Wire.write(0x01);
+  Wire.endTransmission();
+  Wire.requestFrom(MAG_ADDR, 6);
+  if (Wire.available() < 6) return false;
+  uint8_t xl = Wire.read(); uint8_t xh = Wire.read();
+  uint8_t yl = Wire.read(); uint8_t yh = Wire.read();
+  uint8_t zl = Wire.read(); uint8_t zh = Wire.read();
+  rx = (int16_t)(xh << 8 | xl);
+  ry = (int16_t)(yh << 8 | yl);
+  rz = (int16_t)(zh << 8 | zl);
+  return true;
+}
+
+bool readMag(float &mx, float &my, float &mz) {
+  int16_t rx, ry, rz;
+  if (!readMagRaw(rx, ry, rz)) return false;
+  mx = (float)rx - magOffX;      // same axis flips as your sensorfusion1.ino
+  my = -(float)ry - magOffY;
+  mz = -(float)rz - magOffZ;
+  return true;
+}
+
+void calibrateGyro() {
+  Serial.println("FUSION calibrating gyro, keep still...");
+  float sx = 0, sy = 0, sz = 0;
+  for (int i = 0; i < 200; i++) {
+    sensors_event_t a, g, t;
+    mpu.getEvent(&a, &g, &t);
+    sx += g.gyro.x; sy += g.gyro.y; sz += g.gyro.z;   // float sums (a long would truncate the values)
+    delay(10);
+  }
+  gyroBiasX = sx / 200.0f;
+  gyroBiasY = sy / 200.0f;
+  gyroBiasZ = sz / 200.0f;
+  Serial.println("FUSION gyro calibrated");
+}
+
+void initFusion() {
+  if (!mpu.begin()) {
+    Serial.println("ERR MPU6050 not found, sensor fusion disabled");
+    fusionState = 2;
+    return;
+  }
+  Wire.beginTransmission(0x68);   // wake up, use the gyro clock
+  Wire.write(0x6B);
+  Wire.write(0x01);
+  Wire.endTransmission();
+  mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
+
+  Wire.beginTransmission(MAG_ADDR);   // compass init
+  Wire.write(0x0A);
+  Wire.write(0xCF);
+  magOk = (Wire.endTransmission() == 0);
+  if (!magOk) Serial.println("WARN compass not found, using gyro + accelerometer only");
+
+  calibrateGyro();
+  filter.begin(100);
+  lastFusionUs = micros();
+  fusionState = 1;
+  Serial.println("FUSION ready");
+}
+
+// Runs the filter at a steady 100 Hz without blocking. Returns true when a new sample was computed.
+bool updateFusion() {
+  if (fusionState != 1) return false;
+  unsigned long now = micros();
+  unsigned long dt = now - lastFusionUs;
+  if (dt < 10000) return false;
+  lastFusionUs = (dt > 50000) ? now : lastFusionUs + 10000;
+
+  sensors_event_t a, g, t;
+  mpu.getEvent(&a, &g, &t);
+  float gx = (g.gyro.x - gyroBiasX) * 57.2958f;   // rad/s -> deg/s
+  float gy = (g.gyro.y - gyroBiasY) * 57.2958f;
+  float gz = (g.gyro.z - gyroBiasZ) * 57.2958f;
+
+  float mx, my, mz;
+  if (magOk && readMag(mx, my, mz)) {
+    filter.update(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z, mx, my, mz);
+  } else {
+    filter.updateIMU(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z);
+  }
+  filter.getQuaternion(&qW, &qX, &qY, &qZ);
+  return true;
+}
+
+// Calibration stream "M <r|c> x y z": compass values after the axis flips, before the offsets are subtracted.
+void streamMag(char src) {
+  if (!magStream || !magOk || millis() - lastMagStreamMs < 20) return;
+  lastMagStreamMs = millis();
+  int16_t rx, ry, rz;
+  if (readMagRaw(rx, ry, rz)) Serial.printf("M %c %d %d %d\\n", src, (int)rx, -(int)ry, -(int)rz);
+}
+
+// "Q <r|c> w x y z"  (r = robot, c = controller). The web page draws the 3D view from these lines.
+void printQuat(char src) {
+  Serial.printf("Q %c %.4f %.4f %.4f %.4f\\n", src, qW, qX, qY, qZ);
+}`;
+}
+
 function robotFirmware() {
-  const c = currentConfig('current'), e = c.esp, dual = e.dual;
+  const c = currentConfig('current'), e = c.esp, f = c.fw, dual = e.dual, fu = f.robotFusion;
   const lo = Array(16).fill(0), hi = Array(16).fill(180);
   servoState.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
-  const link = dual ? `
-// ---- ESP-NOW link (wireless commands from the controller ESP32) ----
-#define ESPNOW_CHANNEL ${e.channel}
-const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept any sender
-typedef struct { uint8_t pin; uint8_t angle; } ServoMsg;
+  const id = cfgId(0, c);
+  const inc = ['#include <Wire.h>', '#include <Adafruit_PWMServoDriver.h>',
+    ...(dual ? ['#include <WiFi.h>', '#include <esp_now.h>', '#include <esp_wifi.h>', '#include <esp_err.h>'] : []),
+    '#include <esp_mac.h>', '#include <string.h>', ...(fu ? [FUSION_INCLUDES] : [])].join('\n');
 
-// One signature for every ESP32 core version (the Arduino sketch preprocessor ignores #if around
-// function signatures, which breaks builds on some cores). The first argument is read per core version.
-void onRecv(const void *info, const uint8_t *data, int len) {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-  const uint8_t *src = ((const esp_now_recv_info_t *)info)->src_addr;
-#else
-  const uint8_t *src = (const uint8_t *)info;
-#endif
-  if (len != sizeof(ServoMsg)) return;
-  bool anySender = true;
-  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) anySender = false;
-  if (!anySender && memcmp(src, CONTROLLER_MAC, 6) != 0) return;
-  ServoMsg m;
-  memcpy(&m, data, sizeof(m));
-  moveServo(m.pin, m.angle);
+  const radio = dual ? `
+// ---- ESP-NOW link ----
+const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept servo commands from any sender
+struct ServoMsg {
+  uint8_t pin;
+  uint8_t angle;
+};
+${fu ? `struct __attribute__((packed)) ImuMsg {   // robot -> controller telemetry
+  uint8_t type;
+  float w, x, y, z;
+};
+#define IMU_MSG_TYPE 0xA1
+const uint8_t BCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+void sendQuat() {
+  ImuMsg m = { IMU_MSG_TYPE, qW, qX, qY, qZ };
+  esp_now_send(BCAST_MAC, (const uint8_t *)&m, sizeof(m));
+}
+` : ''}
+bool senderAllowed(const uint8_t *src) {
+  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) return memcmp(src, CONTROLLER_MAC, 6) == 0;
+  return true;
+}
+
+// Radio callback: only stores the command. loop() moves the servo, so the I2C bus is
+// never used from two tasks at once (the sensors share it with the PCA9685).
+void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len != sizeof(ServoMsg)) { LOG("ERR unexpected packet length %d\\n", len); return; }
+  if (info != nullptr && info->src_addr != nullptr && !senderAllowed(info->src_addr)) { LOG("Ignored packet from unknown sender\\n"); return; }
+  ServoMsg msg;
+  memcpy(&msg, data, sizeof(msg));
+  if (msg.pin > 15 || msg.angle > 180) { LOG("ERR invalid servo command\\n"); return; }
+  pendingAngle[msg.pin] = msg.angle;
 }
 ` : '';
-  const linkSetup = dual ? `
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
-  if (esp_now_init() == ESP_OK) esp_now_register_recv_cb((esp_now_recv_cb_t)onRecv);
-  else Serial.println("ERR espnow init failed");
+
+  const radioSetup = dual ? `
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("ERR WiFi STA mode failed");
+    return;
+  }
+  delay(100);
+  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  LOG("Set channel %d: %d (%s)\\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
+
+  err = esp_now_init();
+  if (err != ESP_OK) {
+    Serial.printf("ERR ESP-NOW init: %d (%s)\\n", err, esp_err_to_name(err));
+    return;
+  }
+  esp_now_register_recv_cb(onRecv);
+${fu ? `
+  esp_now_peer_info_t bp = {};   // broadcast peer for the telemetry
+  memcpy(bp.peer_addr, BCAST_MAC, 6);
+  bp.channel = ESPNOW_CHANNEL;
+  bp.ifidx = WIFI_IF_STA;
+  bp.encrypt = false;
+  err = esp_now_add_peer(&bp);
+  LOG("Telemetry peer: %d (%s)\\n", err, esp_err_to_name(err));
+` : ''}  LOG("ESP-NOW ready\\n");
 ` : '';
 
-  return `/*
- * PCA9685 Robot Firmware (ESP32) - DEVICE MODE 0 (ROBOT)
+  const sections = [
+`/*
+ * Robot Firmware - ${dual ? 'ESP32 Arduino core 3.x' : 'ESP32'} - DEVICE MODE 0 (ROBOT)
  * Generated by PCA9685 Control Studio.
- * Library needed: "Adafruit PWM Servo Driver Library"
- * Serial (115200):  "s <pin> <angle>"  moves a servo,  "?"  makes the board identify itself.
- */
-#include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
-${dual ? '#include <WiFi.h>\n#include <esp_now.h>\n#include <esp_wifi.h>\n' : ''}
-${helloCode(0, 'ROBOT', cfgId(0, c))}
+ * PCA9685 servo driver${dual ? ' + ESP-NOW receiver' : ''}${fu ? ' + sensor fusion (MPU6050 + compass)' : ''}
+ * Libraries: "Adafruit PWM Servo Driver Library"${fu ? ', "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"' : ''}
+ * Serial (115200):  "s <pin> <angle>"  move a servo,  "?"  identify${fu ? ',  "g"  recalibrate the gyro (keep still),  "m 1|0"  raw compass stream,  "o x y z"  compass offsets' : ''}
+ */`,
+inc,
+`${commonDefs(0, 'ROBOT', id, f.robotVerbose)}
 
 #define SDA_PIN ${e.sda}
 #define SCL_PIN ${e.scl}
 #define SERVO_FREQ 50
 #define SERVOMIN ${c.servomin}   // pulse count (out of 4096) at 0 degrees
-#define SERVOMAX ${c.servomax}   // pulse count (out of 4096) at 180 degrees
+#define SERVOMAX ${c.servomax}   // pulse count (out of 4096) at 180 degrees${dual ? `\n#define ESPNOW_CHANNEL ${e.channel}` : ''}
 
 // Allowed angle range per PCA9685 pin (from your servo config)
 const int LIM_MIN[16] = {${lo.join(', ')}};
 const int LIM_MAX[16] = {${hi.join(', ')}};
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();   // I2C address 0x40
-
-int angleToTicks(int angle) {
+String line;
+volatile int16_t pendingAngle[16];   // -1 = nothing waiting (filled by the radio callback, applied in loop)`,
+fu ? fusionBlock(f.robotMag) : '',
+helloFn(fu, fu ? '(fusionState == 1 ? 1 : 0)' : '0'),
+`int angleToTicks(int angle) {
   return map(angle, 0, 180, SERVOMIN, SERVOMAX);
 }
 
@@ -1565,84 +1869,227 @@ void moveServo(int pin, int angle) {
   if (pin < 0 || pin > 15) return;
   angle = constrain(angle, LIM_MIN[pin], LIM_MAX[pin]);
   pwm.setPWM(pin, 0, angleToTicks(angle));
+  LOG("Moving pin %d to angle %d\\n", pin, angle);
 }
-${link}
-void handleLine(String s) {
+
+void applyPending() {   // newest command per servo wins
+  for (int p = 0; p < 16; p++) {
+    int a = pendingAngle[p];
+    if (a >= 0) {
+      pendingAngle[p] = -1;
+      moveServo(p, a);
+    }
+  }
+}`,
+radio,
+`void handleLine(String s) {
   s.trim();
-  if (s == "?" || s == "hello") { printHello(); return; }
-  if (s.startsWith("s ")) {
+  if (s == "?" || s == "hello") {
+    printHello();
+    return;
+  }${fu ? `
+  if (s == "g") {
+    calibrateGyro();
+    lastFusionUs = micros();
+    return;
+  }
+  if (s == "m 1" || s == "m 0") {
+    magStream = (s == "m 1");
+    Serial.printf("FUSION mag stream %d\\n", magStream ? 1 : 0);
+    return;
+  }
+  if (s.startsWith("o ")) {   // "o x y z": compass offsets until reboot
+    float ox, oy, oz;
+    if (sscanf(s.c_str() + 2, "%f %f %f", &ox, &oy, &oz) == 3) {
+      magOffX = ox; magOffY = oy; magOffZ = oz;
+      Serial.printf("FUSION offsets %.1f %.1f %.1f\\n", ox, oy, oz);
+    }
+    return;
+  }` : ''}
+  if (s.startsWith("s ")) {   // local USB command: "s 0 90"
     int sp = s.indexOf(' ', 2);
     if (sp > 0) moveServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
   }
-}
-
-void setup() {
+}`,
+`void setup() {
   Serial.begin(115200);
+  delay(1000);
+  Serial.println("\\nROBOT BOOTING");
+  for (int i = 0; i < 16; i++) pendingAngle[i] = -1;
+
   Wire.setPins(SDA_PIN, SCL_PIN);
-  pwm.begin();
+  if (!pwm.begin()) Serial.println("ERR PCA9685 not detected");
+  else Serial.println("PCA9685 OK");
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);
   delay(10);
-${linkSetup}  printHello();
-}
+${fu ? '\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}${radioSetup}
+  printHello();
+  Serial.println("ROBOT READY");
+}`,
+`${READ_SERIAL}
 
-${SERIAL_LOOP}
-`;
+void loop() {
+  readSerial();
+  applyPending();${fu ? `
+  streamMag('r');
+  if (updateFusion() && ++fusionTick >= FUSION_EVERY) {
+    fusionTick = 0;
+    printQuat('r');${dual ? '\n    sendQuat();' : ''}
+  }` : ''}
+}`];
+  return sections.filter(s => s !== '').join('\n\n') + '\n';
 }
 
 function controllerFirmware() {
-  const c = currentConfig('current'), e = c.esp;
-  return `/*
- * Controller Firmware (ESP32) - DEVICE MODE 1 (CONTROLLER)
+  const c = currentConfig('current'), e = c.esp, f = c.fw, fu = f.ctrlFusion;
+  const id = cfgId(1, c);
+  const inc = ['#include <WiFi.h>', '#include <esp_now.h>', '#include <esp_wifi.h>', '#include <esp_err.h>',
+    '#include <esp_mac.h>', '#include <string.h>', ...(fu ? ['#include <Wire.h>', FUSION_INCLUDES] : [])].join('\n');
+
+  const sections = [
+`/*
+ * Controller Firmware - ESP32 Arduino core 3.x - DEVICE MODE 1 (CONTROLLER)
  * Generated by PCA9685 Control Studio.
- * Plug this board into your PC (USB). Commands from the web page ("s <pin> <angle>")
- * are forwarded over ESP-NOW to the robot ESP32. The robot applies the servo limits.
- */
-#include <WiFi.h>
-#include <esp_now.h>
-#include <esp_wifi.h>
+ * Plug this board into your PC. Web Serial commands are forwarded to the robot over ESP-NOW.
+ * It also forwards the robot's sensor fusion data${fu ? ' and streams its own (MPU6050 + compass)' : ''} to the web page.
+${fu ? ' * Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"\n' : ''} * Serial (115200):  "s <pin> <angle>"  move a servo (sent to the robot),  "?"  identify${fu ? ',\n *                    "f 1" / "f 0"  start / stop this board\'s orientation stream,  "g"  recalibrate gyro,\n *                    "m 1|0"  raw compass stream,  "o x y z"  compass offsets' : ''}
+ */`,
+inc,
+`${commonDefs(1, 'CONTROLLER', id, f.ctrlVerbose)}
+#define ESPNOW_CHANNEL ${e.channel}${fu ? `\n#define SDA_PIN ${e.csda}\n#define SCL_PIN ${e.cscl}` : ''}
 
-${helloCode(1, 'CONTROLLER', cfgId(1, c))}
+// Must match the ROBOT's MAC (shown when you connect to the robot).
+const uint8_t ROBOT_MAC[6] = {${macBytes(e.robotMac)}};   // ${e.robotMac}
 
-#define ESPNOW_CHANNEL ${e.channel}
-const uint8_t ROBOT_MAC[6] = {${macBytes(e.robotMac)}};   // MAC of the robot ESP32
-typedef struct { uint8_t pin; uint8_t angle; } ServoMsg;
+struct ServoMsg {
+  uint8_t pin;
+  uint8_t angle;
+};
+struct __attribute__((packed)) ImuMsg {   // robot -> controller telemetry
+  uint8_t type;
+  float w, x, y, z;
+};
+#define IMU_MSG_TYPE 0xA1
 
-void sendServo(int pin, int angle) {
-  if (pin < 0 || pin > 15) return;
-  ServoMsg m = { (uint8_t)pin, (uint8_t)constrain(angle, 0, 180) };
-  esp_err_t r = esp_now_send(ROBOT_MAC, (const uint8_t *)&m, sizeof(m));
-  if (r != ESP_OK) Serial.printf("ERR espnow send %d\\n", (int)r);
+String line;
+bool streaming = false;                 // this board's orientation stream (switched from the web page)
+ImuMsg robotImu;                        // newest quaternion received from the robot
+volatile bool robotImuNew = false;`,
+fu ? fusionBlock(f.ctrlMag) : '',
+helloFn(fu, 'streaming ? 1 : 0'),
+`void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  if (status != ESP_NOW_SEND_SUCCESS) Serial.println("ESP-NOW delivery: FAIL");
+  else LOG("ESP-NOW delivery: SUCCESS\\n");
 }
 
-void handleLine(String s) {
+// Robot telemetry: only keep it here, loop() prints it for the web page.
+void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len != sizeof(ImuMsg) || data[0] != IMU_MSG_TYPE) return;
+  if (info != nullptr && info->src_addr != nullptr && memcmp(info->src_addr, ROBOT_MAC, 6) != 0) return;
+  memcpy(&robotImu, data, sizeof(ImuMsg));
+  robotImuNew = true;
+}
+
+void sendServo(int pin, int angle) {
+  if (pin < 0 || pin > 15) {
+    Serial.println("ERR invalid pin");
+    return;
+  }
+  ServoMsg msg = { (uint8_t)pin, (uint8_t)constrain(angle, 0, 180) };
+  esp_err_t err = esp_now_send(ROBOT_MAC, (const uint8_t *)&msg, sizeof(msg));
+  if (err != ESP_OK) Serial.printf("ERR esp_now_send: %d (%s)\\n", err, esp_err_to_name(err));
+  else LOG("Sent pin %d angle %d\\n", pin, msg.angle);
+}`,
+`void handleLine(String s) {
   s.trim();
-  if (s == "?" || s == "hello") { printHello(); return; }
+  if (s == "?" || s == "hello") {
+    printHello();
+    return;
+  }${fu ? `
+  if (s == "f 1" || s == "f 0") {
+    streaming = (s == "f 1");
+    if (streaming) { lastFusionUs = micros(); fusionTick = 0; }
+    Serial.printf("FUSION stream %d\\n", streaming ? 1 : 0);
+    return;
+  }
+  if (s == "g") {
+    calibrateGyro();
+    lastFusionUs = micros();
+    return;
+  }
+  if (s == "m 1" || s == "m 0") {
+    magStream = (s == "m 1");
+    Serial.printf("FUSION mag stream %d\\n", magStream ? 1 : 0);
+    return;
+  }
+  if (s.startsWith("o ")) {   // "o x y z": compass offsets until reboot
+    float ox, oy, oz;
+    if (sscanf(s.c_str() + 2, "%f %f %f", &ox, &oy, &oz) == 3) {
+      magOffX = ox; magOffY = oy; magOffZ = oz;
+      Serial.printf("FUSION offsets %.1f %.1f %.1f\\n", ox, oy, oz);
+    }
+    return;
+  }` : `
+  if (s.startsWith("f ") || s == "g" || s == "m 1" || s == "m 0" || s.startsWith("o ")) {
+    Serial.println("ERR sensor fusion is not built into this firmware");
+    return;
+  }`}
   if (s.startsWith("s ")) {
     int sp = s.indexOf(' ', 2);
     if (sp > 0) sendServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
+    else Serial.println("ERR format: s <pin> <angle>");
   }
-}
-
-void setup() {
+}`,
+`void setup() {
   Serial.begin(115200);
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
-  if (esp_now_init() != ESP_OK) { Serial.println("ERR espnow init failed"); }
-  else {
-    esp_now_peer_info_t peer;
-    memset(&peer, 0, sizeof(peer));
-    memcpy(peer.peer_addr, ROBOT_MAC, 6);
-    peer.channel = ESPNOW_CHANNEL;
-    peer.encrypt = false;
-    if (esp_now_add_peer(&peer) != ESP_OK) Serial.println("ERR add peer failed");
+  delay(500);
+  Serial.println("\\nCONTROLLER BOOTING");
+${fu ? '\n  Wire.setPins(SDA_PIN, SCL_PIN);\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("ERR WiFi STA mode failed");
+    return;
   }
-  printHello();
-}
+  delay(100);
+  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  LOG("Set channel %d: %d (%s)\\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
 
-${SERIAL_LOOP}
-`;
+  err = esp_now_init();
+  if (err != ESP_OK) {
+    Serial.printf("ERR ESP-NOW init: %d (%s)\\n", err, esp_err_to_name(err));
+    return;
+  }
+  esp_now_register_send_cb(onSent);
+  esp_now_register_recv_cb(onRecv);
+
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, ROBOT_MAC, 6);
+  peer.channel = ESPNOW_CHANNEL;
+  peer.ifidx = WIFI_IF_STA;
+  peer.encrypt = false;
+  err = esp_now_add_peer(&peer);
+  if (err == ESP_ERR_ESPNOW_EXIST) LOG("ESP-NOW peer already exists\\n");
+  else if (err != ESP_OK) Serial.printf("ERR add peer: %d (%s)\\n", err, esp_err_to_name(err));
+  else LOG("ESP-NOW PEER OK\\n");
+
+  printHello();
+  Serial.println("CONTROLLER READY");
+}`,
+`${READ_SERIAL}
+
+void loop() {
+  readSerial();
+  if (robotImuNew) {   // forward the robot's orientation to the web page
+    robotImuNew = false;
+    Serial.printf("Q r %.4f %.4f %.4f %.4f\\n", robotImu.w, robotImu.x, robotImu.y, robotImu.z);
+  }${fu ? `
+  streamMag('c');
+  if (streaming && updateFusion() && ++fusionTick >= FUSION_EVERY) {
+    fusionTick = 0;
+    printQuat('c');
+  }` : ''}
+}`];
+  return sections.filter(s => s !== '').join('\n\n') + '\n';
 }
 
 function copyCode(which) {
@@ -1651,6 +2098,313 @@ function copyCode(which) {
   ta.value = text;
   document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
   logTerminal((which === 'ctrl' ? 'Controller' : 'Robot') + ' firmware copied to clipboard.');
+}
+
+// ---------- firmware options (Settings) ----------
+function setFw(key, val) {
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[key] = !!val;
+  try { cfg.fw = normFw(next); logTerminal(`Firmware option ${key} = ${cfg.fw[key]}`); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setMag(board, i, val) {
+  const k = board === 'r' ? 'robotMag' : 'ctrlMag';
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[k][i] = val;
+  try { cfg.fw = normFw(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function renderFw() {
+  const f = cfg.fw;
+  $('fw-robot-verbose').checked = f.robotVerbose;  $('fw-robot-fusion').checked = f.robotFusion;
+  $('fw-ctrl-verbose').checked = f.ctrlVerbose;    $('fw-ctrl-fusion').checked = f.ctrlFusion;
+  for (let i = 0; i < 3; i++) { $('fw-rmag-' + i).value = f.robotMag[i]; $('fw-cmag-' + i).value = f.ctrlMag[i]; }
+  $('esp-csda').value = cfg.esp.csda; $('esp-cscl').value = cfg.esp.cscl;
+  $('ctrl-i2c-card').classList.toggle('hidden', !f.ctrlFusion);
+}
+
+// ---------- sensor fusion display (3D orientation) ----------
+// The firmware prints "Q <r|c> w x y z" lines: r = robot IMU, c = controller IMU.
+const mkF = () => ({ q: null, t: 0, n: 0, n0: 0, hz: 0, ref: null });
+const fusion = { r: mkF(), c: mkF() };
+let fusionView = 'both', fusionInv = { x: false, y: false, z: false }, fusionWant = true, fusionHzAt = 0, fusionTextAt = 0;
+const SRC_NAME = { r: '🤖 Robot', c: '🎮 Controller' };
+
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]];
+const qconj = (a) => [a[0], -a[1], -a[2], -a[3]];
+const qnorm = (q) => { const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return q.map(x => x / n); };
+function qrot(q, v) { const r = qmul(qmul(q, [0, v[0], v[1], v[2]]), qconj(q)); return [r[1], r[2], r[3]]; }
+function euler(q) {
+  const [w, x, y, z] = q;
+  return { roll: Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)),
+           pitch: Math.asin(clamp(2 * (w * y - z * x), -1, 1)),
+           yaw: Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) };
+}
+const flipq = (q) => [q[0], fusionInv.x ? -q[1] : q[1], fusionInv.y ? -q[2] : q[2], fusionInv.z ? -q[3] : q[3]];
+function displayQuat(f) {
+  if (!f.q) return null;
+  let q = qnorm(flipq(f.q));
+  if (f.ref) q = qnorm(qmul(qconj(qnorm(flipq(f.ref))), q));
+  return q;
+}
+
+function handleQuatLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 6 || !fusion[p[1]]) return;
+  const q = p.slice(2, 6).map(parseFloat);
+  if (q.some(x => !isFinite(x))) return;
+  const f = fusion[p[1]];
+  f.q = q; f.t = performance.now(); f.n++;
+}
+
+function setFusionView(v) {
+  fusionView = v;
+  ['r', 'c', 'both'].forEach(k => $('fs-' + k).className = k === v ? 'on' : '');
+}
+function setFusionInvert(axis, on) { fusionInv[axis] = on; }
+function zeroView() { ['r', 'c'].forEach(k => { if (fusion[k].q) fusion[k].ref = fusion[k].q.slice(); }); logTerminal('Orientation view zeroed.'); }
+function clearZero() { fusion.r.ref = null; fusion.c.ref = null; }
+
+function fusionControlsState() {
+  const d = deviceInfo, on = !!(serialPort && d && d.fusion === 1);
+  const ctrl = on && d.mode === 1;
+  $('fusion-stream').disabled = !ctrl;
+  $('fusion-stream').checked = ctrl ? fusionWant : false;
+  $('fusion-calib').disabled = !on;
+  $('fusion-hint').textContent = !serialPort ? 'Connect WebSerial to a board to receive orientation data.'
+    : !d ? 'Waiting for the board to identify itself...'
+    : d.fusion === 0 ? 'This board\'s firmware has no sensor fusion built in (Settings → Firmware options).'
+    : d.fusion === 2 ? 'This board could not find its MPU6050. Check the wiring (SDA/SCL, 3.3V, GND).'
+    : d.mode === 0 ? 'Connected to the robot: it streams its orientation automatically (set in the firmware).'
+    : 'Connected to the controller: the robot\'s orientation is forwarded; switch on the controller\'s own stream here.';
+}
+function toggleFusionStream(on) {
+  fusionWant = on;
+  if (serialPort && deviceInfo && deviceInfo.mode === 1 && deviceInfo.fusion === 1) sendRaw(`f ${on ? 1 : 0}\n`);
+}
+function calibrateGyro() { sendRaw('g\n'); logTerminal('Gyro calibration requested: keep the board still for 2 seconds.'); }
+
+// camera: world Z is up
+const VIEW = { az: -0.6, el: 0.5 };
+function project(v, cx, cy, s) {
+  const ca = Math.cos(VIEW.az), sa = Math.sin(VIEW.az), ce = Math.cos(VIEW.el), se = Math.sin(VIEW.el);
+  const x1 = v[0] * ca - v[1] * sa, y1 = v[0] * sa + v[1] * ca;
+  const up = v[2] * ce + y1 * se, depth = y1 * ce - v[2] * se;
+  const k = 7 / (7 + depth);
+  return [cx + x1 * s * k, cy - up * s * k, depth];
+}
+function drawModel(ctx, q, cx, cy, s, label, top) {
+  // ground grid
+  ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    const a = project([i * 0.6, -1.8, -0.9], cx, cy, s), b = project([i * 0.6, 1.8, -0.9], cx, cy, s);
+    const c = project([-1.8, i * 0.6, -0.9], cx, cy, s), d = project([1.8, i * 0.6, -0.9], cx, cy, s);
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.stroke();
+  }
+  const hx = 1.1, hy = 0.65, hz = 0.14;
+  const V = [[-hx, -hy, -hz], [hx, -hy, -hz], [hx, hy, -hz], [-hx, hy, -hz], [-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz]];
+  const P = V.map(v => project(qrot(q, v), cx, cy, s));
+  const faces = [[0, 1, 2, 3, '#1e3a5f'], [4, 5, 6, 7, top], [1, 2, 6, 5, '#f59e0b'], [0, 3, 7, 4, '#334155'], [0, 1, 5, 4, '#475569'], [3, 2, 6, 7, '#475569']];
+  faces.map(f => ({ f, d: (P[f[0]][2] + P[f[1]][2] + P[f[2]][2] + P[f[3]][2]) / 4 })).sort((a, b) => b.d - a.d).forEach(({ f }) => {
+    ctx.beginPath(); ctx.moveTo(P[f[0]][0], P[f[0]][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(P[f[i]][0], P[f[i]][1]);
+    ctx.closePath(); ctx.globalAlpha = 0.92; ctx.fillStyle = f[4]; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(226,232,240,.55)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  const o = project([0, 0, 0], cx, cy, s);
+  [[[1.7, 0, 0], '#ef4444', 'X'], [[0, 1.3, 0], '#22c55e', 'Y'], [[0, 0, 1.3], '#3b82f6', 'Z']].forEach(([dir, col, nm]) => {
+    const e = project(qrot(q, dir), cx, cy, s);
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = 'bold 12px system-ui,sans-serif'; ctx.fillText(nm, e[0] + 4, e[1] - 4);
+  });
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '600 13px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(label, cx, cy + s * 1.9); ctx.textAlign = 'left';
+}
+
+function drawFusion(now) {
+  requestAnimationFrame(drawFusion);
+  if ($('tab-gui').classList.contains('hidden')) return;
+  const cv = $('fusion-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, r.height);
+
+  if (now - fusionHzAt > 1000) {
+    ['r', 'c'].forEach(k => { fusion[k].hz = Math.round((fusion[k].n - fusion[k].n0) * 1000 / Math.max(1, now - fusionHzAt)); fusion[k].n0 = fusion[k].n; });
+    fusionHzAt = now;
+  }
+  const live = (k) => fusion[k].q && now - fusion[k].t < 1500;
+  const show = fusionView === 'both' ? ['r', 'c'] : [fusionView];
+  const s = Math.min(r.width / show.length / 3.2, r.height / 3.6);
+  show.forEach((k, i) => {
+    const cx = r.width * (i + 0.5) / show.length, cy = r.height * 0.46;
+    const q = displayQuat(fusion[k]);
+    if (!q) {
+      ctx.fillStyle = '#64748b'; ctx.font = '13px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${SRC_NAME[k]}: no data yet`, cx, cy); ctx.textAlign = 'left';
+    } else {
+      ctx.globalAlpha = live(k) ? 1 : 0.45;
+      drawModel(ctx, q, cx, cy, s, SRC_NAME[k] + (live(k) ? '' : ' (stale)'), k === 'r' ? '#0ea5e9' : '#a855f7');
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  if (now - fusionTextAt > 100) {
+    fusionTextAt = now;
+    const deg = (x) => (x * 180 / Math.PI).toFixed(1).padStart(6) + '°';
+    $('fusion-readout').innerHTML = ['r', 'c'].map(k => {
+      const f = fusion[k], q = displayQuat(f), lv = live(k);
+      let eu = '';
+      if (q) { const e = euler(q); eu = `<div class="kv"><span class="mute">yaw / pitch / roll</span><span>${deg(e.yaw)} ${deg(e.pitch)} ${deg(e.roll)}</span></div>
+        <div class="kv"><span class="mute">quaternion</span><span>${f.q.map(x => x.toFixed(3)).join(' ')}</span></div>`; }
+      return `<div class="stack"><b class="sm">${SRC_NAME[k]} <span class="${lv ? 'green' : 'dim'}">● ${lv ? f.hz + ' Hz' : 'no data'}</span></b>${eu}</div>`;
+    }).join('');
+    fusionControlsState();
+  }
+}
+function startFusionLoop() { requestAnimationFrame(drawFusion); requestAnimationFrame(drawCalibration); }
+
+// ---------- calibration (gyro + compass) ----------
+// The firmware streams "M <r|c> x y z" (compass values before the offsets are subtracted).
+// Rotating the board through every orientation draws a sphere; its centre is the hard-iron offset.
+const cal = { active: false, x: [], y: [], z: [], src: '', n: 0, n0: 0, hz: 0, gyro: 'idle', hzAt: 0, textAt: 0, saved: null };
+const CAL_MAX = 5000;
+
+function handleMagLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 5 || !cal.active) return;
+  const v = [parseFloat(p[2]), parseFloat(p[3]), parseFloat(p[4])];
+  if (v.some(x => !isFinite(x))) return;
+  cal.src = p[1]; cal.n++;
+  if (cal.x.length < CAL_MAX) { cal.x.push(v[0]); cal.y.push(v[1]); cal.z.push(v[2]); }
+  else { const i = Math.floor(Math.random() * CAL_MAX); cal.x[i] = v[0]; cal.y[i] = v[1]; cal.z[i] = v[2]; }
+}
+
+function calReady() {
+  if (!serialPort) return { ok: false, msg: 'Connect WebSerial to the board you want to calibrate first.' };
+  if (!deviceInfo) return { ok: false, msg: 'Waiting for the board to identify itself...' };
+  if (deviceInfo.fusion !== 1) return { ok: false, msg: deviceInfo.fusion === 2 ? 'This board could not find its MPU6050.' : 'This firmware has no sensor fusion built in (Settings → Firmware options).' };
+  if (!deviceInfo.compass) return { ok: false, msg: 'The board did not find the compass (address 0x2C). Check its wiring, then reboot the board.' };
+  return { ok: true, msg: '' };
+}
+const calBoard = () => (deviceInfo && deviceInfo.mode === 1 ? 'c' : 'r');
+const pctile = (arr, p) => { const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))]; };
+
+function calStats() {
+  const n = cal.x.length;
+  if (n < 2) return null;
+  const ax = [cal.x, cal.y, cal.z];
+  const lo = ax.map(a => (n >= 50 ? pctile(a, 0.01) : Math.min(...a)));     // 1%..99% ignores single spikes
+  const hi = ax.map(a => (n >= 50 ? pctile(a, 0.99) : Math.max(...a)));
+  const center = lo.map((l, i) => (l + hi[i]) / 2), range = lo.map((l, i) => hi[i] - l);
+  const maxR = Math.max(...range), minR = Math.min(...range);
+  const balance = maxR > 0 ? minR / maxR : 0;
+  const oct = new Set();
+  for (let i = 0; i < n; i++) {
+    const d = [cal.x[i] - center[0], cal.y[i] - center[1], cal.z[i] - center[2]];
+    if (Math.hypot(d[0], d[1], d[2]) > maxR * 0.35 / 2 * 1.0) oct.add((d[0] > 0 ? 1 : 0) | (d[1] > 0 ? 2 : 0) | (d[2] > 0 ? 4 : 0));
+  }
+  let verdict, cls;
+  if (n < 150) { verdict = `Keep rotating the board slowly in every direction (${n}/150 samples).`; cls = 'warn'; }
+  else if (oct.size < 8) { verdict = `Cover more directions: ${oct.size}/8 regions reached. Tumble the board like a ball, upside down and on every side.`; cls = 'warn'; }
+  else if (balance < 0.6) { verdict = 'Enough coverage, but the three axis ranges are uneven (metal nearby or an incomplete rotation). The offsets will still help.'; cls = 'warn'; }
+  else { verdict = 'Good coverage. You can stop and save the offsets.'; cls = 'ok'; }
+  return { n, lo, hi, center: center.map(c => Math.round(c * 10) / 10), range, balance, oct: oct.size, verdict, cls };
+}
+
+function calStart() {
+  const r = calReady();
+  if (!r.ok) { logTerminal(r.msg); return; }
+  cal.x = []; cal.y = []; cal.z = []; cal.n = 0; cal.n0 = 0; cal.active = true;
+  sendRaw('m 1\n');
+  logTerminal('Compass calibration started: rotate the board through every orientation.');
+}
+function calStop() {
+  if (!cal.active) return;
+  cal.active = false;
+  sendRaw('m 0\n');
+  logTerminal('Compass calibration stopped.');
+}
+function calReset() { cal.x = []; cal.y = []; cal.z = []; cal.n = 0; cal.n0 = 0; }
+
+function setMagAll(board, arr) {
+  const k = board === 'r' ? 'robotMag' : 'ctrlMag';
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[k] = arr.slice();
+  try { cfg.fw = normFw(next); } catch (e) { logTerminal(e.message); return false; }
+  refreshAll();
+  return true;
+}
+function calSave() {
+  const st = calStats();
+  if (!st || st.n < 50) { logTerminal('Not enough compass samples yet. Rotate the board a bit longer.'); return; }
+  const board = calBoard(), off = st.center;
+  if (!setMagAll(board, off)) return;
+  if (serialPort) sendRaw(`o ${off[0]} ${off[1]} ${off[2]}\n`);        // use them right away, without re-flashing
+  cal.saved = { board, off, at: new Date().toLocaleTimeString() };
+  logTerminal(`Compass offsets ${off.join(', ')} saved to Settings for the ${board === 'r' ? 'robot' : 'controller'} and applied live. Re-flash to make them permanent.`);
+}
+function gyroCalibrate() {
+  const r = calReady();
+  if (!r.ok && !(deviceInfo && deviceInfo.fusion === 1)) { logTerminal(r.msg); return; }
+  cal.gyro = 'running';
+  sendRaw('g\n');
+  logTerminal('Gyro calibration started: keep the board completely still for 2 seconds.');
+}
+
+// --- drawing ---
+function drawCalPlots(ctx, w, h, st) {
+  const panels = [['X', 'Y', cal.x, cal.y, 0, 1], ['X', 'Z', cal.x, cal.z, 0, 2], ['Y', 'Z', cal.y, cal.z, 1, 2]];
+  const pw = w / 3, half = Math.max(...st.range) / 2 * 1.2 || 1, s = Math.min(pw, h) * 0.42 / half;
+  panels.forEach(([an, bn, a, b, ia, ib], k) => {
+    const cx = pw * (k + 0.5), cy = h * 0.52;
+    ctx.strokeStyle = 'rgba(100,116,139,.45)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - pw * 0.45, cy); ctx.lineTo(cx + pw * 0.45, cy); ctx.moveTo(cx, cy - h * 0.42); ctx.lineTo(cx, cy + h * 0.42); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, half / 1.2 * s, 0, Math.PI * 2); ctx.stroke();   // ideal circle
+    ctx.fillStyle = 'rgba(56,189,248,.8)';
+    for (let i = 0; i < a.length; i++) ctx.fillRect(cx + (a[i] - st.center[ia]) * s - 1, cy - (b[i] - st.center[ib]) * s - 1, 2, 2);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '600 12px system-ui,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`${an} / ${bn}`, cx, 14); ctx.textAlign = 'left';
+  });
+}
+
+function drawCalibration(now) {
+  requestAnimationFrame(drawCalibration);
+  if ($('tab-calibrate').classList.contains('hidden')) return;
+  if (now - cal.hzAt > 1000) { cal.hz = Math.round((cal.n - cal.n0) * 1000 / Math.max(1, now - cal.hzAt)); cal.n0 = cal.n; cal.hzAt = now; }
+  const st = calStats();
+  const cv = $('cal-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (r.width) {
+    if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, r.width, r.height);
+    if (st) drawCalPlots(ctx, r.width, r.height, st);
+    else { ctx.fillStyle = '#64748b'; ctx.font = '13px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Press “Start compass calibration”, then rotate the board in every direction.', r.width / 2, r.height / 2); ctx.textAlign = 'left'; }
+  }
+  if (now - cal.textAt < 200) return;
+  cal.textAt = now;
+  const rd = calReady(), bd = deviceInfo ? (deviceInfo.mode === 1 ? '🎮 Controller' : '🤖 Robot') : '–';
+  $('cal-board').textContent = rd.ok ? `Calibrating the ${bd}` : rd.msg;
+  $('cal-start').disabled = !rd.ok || cal.active;
+  $('cal-stop').disabled = !cal.active;
+  $('cal-save').disabled = !st || st.n < 50;
+  $('gyro-btn').disabled = !(deviceInfo && deviceInfo.fusion === 1);
+  $('gyro-status').textContent = { idle: '', running: '⏳ Calibrating... keep the board still', done: '✔ Gyro calibrated' }[cal.gyro];
+  const bk = calBoard() === 'r' ? 'robotMag' : 'ctrlMag';
+  const fmt = (v) => (Math.round(v * 10) / 10).toString();
+  $('cal-info').innerHTML = `<div class="kv"><span class="mute">Samples</span><span>${cal.n}${cal.active ? ` · ${cal.hz} Hz` : ''}</span></div>` +
+    (st ? `<div class="scroll-x"><table class="mono"><thead><tr><th></th><th>Min</th><th>Max</th><th>Range</th><th>New offset</th><th>Saved offset</th></tr></thead><tbody>${['X', 'Y', 'Z'].map((n, i) =>
+      `<tr><td><b>${n}</b></td><td>${fmt(st.lo[i])}</td><td>${fmt(st.hi[i])}</td><td>${fmt(st.range[i])}</td><td class="brand"><b>${fmt(st.center[i])}</b></td><td class="mute">${fmt(cfg.fw[bk][i])}</td></tr>`).join('')}</tbody></table></div>
+      <div class="sbox ${st.cls}">${st.cls === 'ok' ? '✔' : '⚠'} ${esc(st.verdict)}</div>`
+    : '<div class="xs dim">No samples yet.</div>') +
+    (cal.saved ? `<div class="sbox info">ℹ Saved ${cal.saved.off.join(', ')} for the ${cal.saved.board === 'r' ? 'robot' : 'controller'} at ${cal.saved.at}. Re-flash that board (Prepare tab) to make the offsets permanent.</div>` : '');
 }
 
 </script>

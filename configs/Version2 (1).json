@@ -1,0 +1,82 @@
+{
+  "name": "Version2",
+  "version": 3,
+  "servomin": 125,
+  "servomax": 540,
+  "servos": [
+    {
+      "pin": 0,
+      "label": "Base / Pan",
+      "min": 40,
+      "max": 180
+    },
+    {
+      "pin": 1,
+      "label": "Shoulder / Pitch",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 2,
+      "label": "Elbow / Lift",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 3,
+      "label": "Wrist / Roll",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 4,
+      "label": "Gripper / Claw",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 5,
+      "label": "Aux Servo 5",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 6,
+      "label": "Aux Servo 6",
+      "min": 0,
+      "max": 180
+    },
+    {
+      "pin": 7,
+      "label": "Aux Servo 7",
+      "min": 0,
+      "max": 180
+    }
+  ],
+  "esp": {
+    "dual": true,
+    "channel": 1,
+    "robotMac": "B4:BF:E9:0B:16:70",
+    "ctrlMac": "B4:BF:E9:0A:EE:8C",
+    "sda": 21,
+    "scl": 22,
+    "csda": 21,
+    "cscl": 22
+  },
+  "fw": {
+    "robotVerbose": false,
+    "ctrlVerbose": false,
+    "robotFusion": true,
+    "ctrlFusion": true,
+    "robotMag": [
+      -128,
+      408.5,
+      178.5
+    ],
+    "ctrlMag": [
+      -50,
+      -100,
+      -60
+    ]
+  }
+}

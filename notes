@@ -1,0 +1,76 @@
+robot= 70:16:0B:E9:BF:B4
+controller= 8C:EE:0A:E9:BF:B4
+
+Robot STA MAC: B4:BF:E9:0B:16:70
+Controller STA MAC: B4:BF:E9:0A:EE:8C
+
+/
+quadruped servo pospsicle
+
+making a four legged robot with 2 servos on each limbs
+i am trying to get it to walk
+preferbably by pid or some ai model
+I also want to control by ui web interface maybe by a html file
+You are out of free messages until tomorrow at 12:10 AM
+
+
+Dynamic servo control settings
+just now
+Recents
+Robot servo joint layout
+4 hours ago
+Self-balancing robot foot sensors
+22 hours ago
+Instructions
+
+Add instructions to tailor Claude’s responses
+Context
+1% of project capacity used
+
+Robot infos1
+ROBOT: 4-legged crawler, 8 servos, 2 DOF per leg, no knee (final design).
+
+TORSO: square. One leg at each corner, on the 45° diagonal.
+Front = top of the top-view sketch.
+
+SERVO LABELS (top view, front at top):
+  1 = front-left    2 = front-right
+  3 = rear-left     4 = rear-right
+Layer 1 (yaw) servos: 1-4. Layer 2 (lift) servos: n+4, so
+leg 1 -> servo 5, leg 2 -> 6, leg 3 -> 7, leg 4 -> 8.
+
+LEG (identical x4, each mounted rotated 90° from its neighbors):
+- Layer 1 (yaw): vertical axis, swings the limb horizontally.
+  Servo range 0-180° via PWM. Commanded 90° = center = limb on the
+  corner's 45° diagonal.
+  Yaw direction (increasing angle = toward front or rear): [fill in per leg]
+- Layer 2 (lift): horizontal hinge axis, perpendicular to the limb.
+  Commanded 90° = limb horizontal, pointing outward, parallel to the
+  ground. Servos are mirrored:
+    at 180°: servos 5 and 8 = limb DOWN, servos 6 and 7 = limb UP.
+    So lift direction sign: legs 1 and 4 = one sign, legs 2 and 3 = opposite.
+- Foot moves on a fixed-radius arc. Reach cannot be changed.
+- No further joints will be added.
+
+GAIT GOALS: crawl gait (one leg lifts at a time, 3 feet always on the
+ground), tank-style turning, later IMU + PID tilt correction.
+Static stability first, no AI/RL for v1.
+
+CODE CONVENTIONS NEEDED: per-leg sign flip and offset for mirroring,
+per-servo trim for calibration, joint limits to prevent leg collisions,
+smooth (rate-limited) servo motion, abstract "lift" and "swing" angles
+mapped to raw servo angles per leg.
+
+HARDWARE:
+- Servos: 8x SG90-class metal-gear micro servos (black plastic case),
+  modified/set up for 180° travel. Likely ~2 kg·cm torque at 5-6 V.
+- Controller: ESP32. Servo driver: PCA9685 (I2C).
+- Sensors: MPU6050 IMU, HMC compass (possibly optional).
+  All on one I2C bus (typical addresses: PCA9685 0x40, MPU6050 0x68,
+  HMC5883L 0x1E).
+- Power: 7.4 V battery -> buck converter -> 5.5 V, feeding both the ESP32
+  and the PCA9685 servo rail. Grounds common.
+- PCA9685 channel mapping: [confirm, assumed channel = servo label - 1]
+- Torso size: TBD
+- Limb length: TBD (foot not installed yet, length undecided)
+- Total mass: TBD
