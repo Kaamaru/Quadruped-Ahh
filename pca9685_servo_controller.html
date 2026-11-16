@@ -180,8 +180,9 @@ pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;pa
 .pg{display:flex;flex-direction:column;gap:20px}
 .fusion{display:grid;grid-template-columns:minmax(300px,1.5fr) minmax(260px,1fr);gap:16px;align-items:start}
 @media(max-width:900px){.fusion{grid-template-columns:1fr}}
-#fusion-canvas,#cal-canvas{width:100%;height:320px;background:rgba(15,23,42,.7);border:1px solid var(--line);border-radius:12px;display:block}
+#fusion-canvas,#cal-canvas,#mon-canvas{width:100%;height:320px;background:rgba(15,23,42,.7);border:1px solid var(--line);border-radius:12px;display:block}
 input[type=checkbox]{accent-color:#0ea5e9}
+#mon-canvas{height:220px}
 </style>
 </head>
 <body>
@@ -217,6 +218,7 @@ input[type=checkbox]{accent-color:#0ea5e9}
         <p class="sm mute" style="margin:2px 0 0">Control all servos at once or run a diagnostic sweep (servo limits are always respected).</p>
       </div>
       <div class="row">
+        <label class="row sm" style="gap:8px;cursor:pointer" title="On: servos move on a smooth curve and never faster than the speed limit (protects heavy robots). Off: full speed, no easing."><span class="switch"><input id="damp-switch" type="checkbox" onchange="setDamping(this.checked)"><span></span></span>Smooth motion</label>
         <button class="btn" onclick="setAllServos(90)">Reset All (90°)</button>
         <button class="btn" onclick="setAllServos(0)">0°</button>
         <button class="btn" onclick="setAllServos(180)">180°</button>
@@ -253,15 +255,22 @@ input[type=checkbox]{accent-color:#0ea5e9}
       </div>
       <p class="note" style="margin:0 0 6px">Drag to reorder · click a block to edit it. Editing a pose here changes the stored pose too.</p>
       <div id="keyframes-list" class="seq-list"></div>
+      <div id="run-status" class="xs dim" style="min-height:16px"></div>
       <div class="row between" style="margin-top:10px;padding-top:12px;border-top:1px solid rgba(51,65,85,.6)">
         <div class="row">
+          <span class="dim xs" title="How long the robot takes to reach each pose when the sequence runs on the robot (it may be stretched so no servo is overloaded)">Move time</span>
+          <select id="move-ms"><option value="0">fastest</option><option value="300">300ms</option><option value="500" selected>500ms</option><option value="800">800ms</option><option value="1200">1200ms</option><option value="2000">2000ms</option></select>
           <span class="dim xs" title="Pause inserted between two poses that follow each other directly">Pose gap</span>
           <select id="sequence-delay">
             <option value="0">0ms</option><option value="300">300ms</option><option value="600" selected>600ms</option><option value="1000">1000ms</option><option value="2000">2000ms</option>
           </select>
-          <label class="row xs" style="gap:6px;cursor:pointer" title="Repeat the sequence until you press Stop"><span class="switch"><input type="checkbox" id="loop-toggle"><span></span></span>Loop</label>
+          <label class="row xs" style="gap:6px;cursor:pointer" title="Repeat the sequence until you press Stop"><span class="switch"><input type="checkbox" id="loop-toggle" onchange="onLoopToggle(this.checked)"><span></span></span>Loop</label>
         </div>
-        <button id="play-seq-btn" class="btn btn-green" onclick="playSequence()" disabled>▶ Play Sequence</button>
+        <span class="row" style="gap:6px">
+          <button id="run-robot-btn" class="btn btn-brand" onclick="runOnRobot()" title="Sends the whole sequence to the robot in a few packets and runs it there. The radio is quiet while it plays.">⬆ Run on robot</button>
+          <button class="btn btn-ghost" onclick="stopRobot()" title="Stops the sequence that is running on the robot">■ Stop robot</button>
+          <button id="play-seq-btn" class="btn btn-green" onclick="playSequence()" title="Plays from this page, sending the poses one after another" disabled>▶ Play (stream)</button>
+        </span>
       </div>
     </div>
   </div>
@@ -289,6 +298,73 @@ input[type=checkbox]{accent-color:#0ea5e9}
           <label><input type="checkbox" onchange="setFusionInvert('z',this.checked)"> Z</label></div>
       </div>
     </div>
+  </div>
+
+  <div class="card" id="balance-card">
+    <div class="row between" style="margin-bottom:10px">
+      <div><h3>Balance</h3><span class="xs dim">Keeps the body level while the four legs stand, using the MPU6050 (X forward). Stand the robot up first (for example your “Pose #2”), then switch it on.</span></div>
+      <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="bal-switch" type="checkbox" onchange="toggleBalance(this.checked)"><span></span></span>Balance</label>
+    </div>
+    <div class="fusion">
+      <div class="row" style="gap:16px;align-items:center">
+        <canvas id="bal-canvas" style="width:170px;height:170px;flex:none;border:1px solid var(--line);border-radius:12px;background:rgba(15,23,42,.7)"></canvas>
+        <div class="stack" style="flex:1"><div id="bal-readout" class="stack"></div><span id="bal-status" class="xs dim"></span></div>
+      </div>
+      <div class="stack">
+        <div class="row">
+          <button class="btn btn-ghost btn-sm" onclick="setLevel()" title="Standing on flat ground: treat the current tilt as level (corrects a slightly tilted sensor)">Set level</button>
+          <span class="xs dim">Do this once on flat ground.</span>
+        </div>
+        <div class="row" style="gap:10px;align-items:flex-end">
+          <label class="field">Kp<input id="bl-kp" type="number" step="0.05" style="width:70px"></label>
+          <label class="field">Ki<input id="bl-ki" type="number" step="0.05" style="width:70px"></label>
+          <label class="field">Kd<input id="bl-kd" type="number" step="0.01" style="width:70px"></label>
+          <label class="field">Max °<input id="bl-max" type="number" step="1" style="width:70px"></label>
+        </div>
+        <div class="row">
+          <button class="btn btn-brand btn-sm" onclick="applyGains()" title="Try these gains now (lost when the robot reboots)">Apply live</button>
+          <button class="btn btn-ghost btn-sm" onclick="saveGains()" title="Keep them in Settings; they are written into the robot code">Save to Settings</button>
+        </div>
+        <span class="xs dim">If it wobbles, lower Kp. If it settles slowly, raise Ki a little. If the bubble moves the wrong way when you tip the robot, use Settings → Balance → Invert.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="walk-card">
+    <div class="row between" style="margin-bottom:10px">
+      <div><h3>Walk (four-phase crawl)</h3><span class="xs dim">Phases: front-left, rear-right, front-right, rear-left. One leg lifts and swings at a time, then all four feet push the body forward. The robot runs it on its own and keeps the body level (Balance) while it walks.</span></div>
+    </div>
+    <div class="split">
+      <div class="stack">
+        <div class="row" style="gap:10px;align-items:flex-end"><label class="field">Lift (°)<input id="gait-liftDeg" type="number" step="any" style="width:70px" onchange="setGait('liftDeg',this.value)"></label><label class="field">Lift ms<input id="gait-tLift" type="number" step="any" style="width:70px" onchange="setGait('tLift',this.value)"></label><label class="field">Swing ms<input id="gait-tSwing" type="number" step="any" style="width:70px" onchange="setGait('tSwing',this.value)"></label><label class="field">Lower ms<input id="gait-tLower" type="number" step="any" style="width:70px" onchange="setGait('tLower',this.value)"></label><label class="field">Push ms<input id="gait-tPush" type="number" step="any" style="width:70px" onchange="setGait('tPush',this.value)"></label></div>
+        <div class="row" style="gap:18px">
+          <label class="row sm" style="gap:8px;cursor:pointer" title="Walk backwards"><span class="switch"><input id="gait-reverse" type="checkbox" onchange="setGait('reverse',this.checked)"><span></span></span>Reverse</label>
+          <label class="row sm" style="gap:8px;cursor:pointer" title="Switch the Balance controller on when the start pose is reached"><span class="switch"><input id="gait-balance" type="checkbox" onchange="setGait('balance',this.checked)"><span></span></span>Balance while walking</label>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" onclick="standUp()" title="Moves all legs to the standing pose (once)">① Stand</button>
+          <button class="btn btn-green" onclick="startWalking()" title="Uploads the gait to the robot and loops it there">② Start walking</button>
+          <button class="btn btn-ghost" onclick="stopWalking()" title="Finishes the current cycle, so all legs end up down">■ Stop after cycle</button>
+          <button class="btn btn-rose" onclick="emergencyStop()" title="Stops at once (a lifted leg stays up)">Emergency stop</button>
+        </div>
+        <div id="walk-status" class="xs dim" style="min-height:16px"></div>
+        <span class="xs dim">First time: lift the robot so the legs hang free and watch one cycle. If it walks backwards, tick Reverse. Check Balance works first (bubble card above). The speed limit in Settings → Load &amp; safety slows swings, so a cycle takes several seconds on a heavy robot.</span>
+      </div>
+      <details class="stack"><summary class="sm" style="cursor:pointer">Leg angles (from your Four-phase crawl poses)</summary>
+        <table style="margin-top:8px"><thead><tr><th>Leg</th><th>Yaw rear</th><th>Yaw front</th><th>Lift when down</th></tr></thead><tbody><tr><td><b>FL</b></td><td><input id="gait-rear-FL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','FL','rear',this.value)"></td><td><input id="gait-front-FL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','FL','front',this.value)"></td><td><input id="gait-stance-FL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('stance','FL','',this.value)"></td></tr><tr><td><b>FR</b></td><td><input id="gait-rear-FR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','FR','rear',this.value)"></td><td><input id="gait-front-FR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','FR','front',this.value)"></td><td><input id="gait-stance-FR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('stance','FR','',this.value)"></td></tr><tr><td><b>RL</b></td><td><input id="gait-rear-RL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','RL','rear',this.value)"></td><td><input id="gait-front-RL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','RL','front',this.value)"></td><td><input id="gait-stance-RL" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('stance','RL','',this.value)"></td></tr><tr><td><b>RR</b></td><td><input id="gait-rear-RR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','RR','rear',this.value)"></td><td><input id="gait-front-RR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('legs','RR','front',this.value)"></td><td><input id="gait-stance-RR" type="number" min="0" max="180" style="width:70px" onchange="setGaitLeg('stance','RR','',this.value)"></td></tr></tbody></table>
+        <span class="xs dim">Yaw rear/front = where the leg's yaw servo points when the leg is back / forward. Lift when down = the lift angle of the standing pose.</span>
+      </details>
+    </div>
+  </div>
+
+  <div class="card" id="monitor-card">
+    <div class="row between" style="margin-bottom:8px">
+      <div><h3>Servo monitor</h3><span class="xs dim">Target vs commanded vs physical position for every pin, last 15 seconds. The physical line needs each servo's feedback wire (Settings).</span></div>
+      <span class="xs row" style="gap:12px"><span style="color:#fbbf24">╌ target</span><span style="color:#94a3b8">━ commanded</span><span style="color:#34d399">━ physical</span></span>
+    </div>
+    <div id="overload-banner" class="sbox warn hidden" style="margin-bottom:8px"><span id="overload-text"></span>
+      <button class="btn btn-sm btn-rose" style="margin-left:10px" onclick="clearOverload()" title="Lets the held servo move again">Clear overload</button></div>
+    <canvas id="mon-canvas"></canvas>
   </div>
 
   <div class="row between">
@@ -466,6 +542,46 @@ input[type=checkbox]{accent-color:#0ea5e9}
 <!-- ===== SETTINGS ===== -->
 <section id="tab-settings" class="hidden">
   <div class="card">
+    <h2>Balance</h2>
+    <p class="note" style="margin:4px 0 14px">Written into the robot code (needs the robot's sensor fusion on). Tilt: pitch + = nose down, roll + = right side down, with the MPU6050 X axis pointing to the front and Z up. If the bubble in the Balance card moves the wrong way when you tip the robot by hand, use Invert.</p>
+    <div class="split">
+      <div class="panel stack">
+        <b class="sm">Controller (PID)</b>
+        <div class="row" style="gap:14px"><label class="field">Kp<input id="bal-kp" type="number" step="any" style="width:80px" onchange="setBal('kp',this.value)"></label><label class="field">Ki<input id="bal-ki" type="number" step="any" style="width:80px" onchange="setBal('ki',this.value)"></label><label class="field">Kd<input id="bal-kd" type="number" step="any" style="width:80px" onchange="setBal('kd',this.value)"></label></div>
+        <div class="row" style="gap:14px"><label class="field">Max correction (°)<input id="bal-maxCorr" type="number" step="any" style="width:80px" onchange="setBal('maxCorr',this.value)"></label><label class="field">Deadband (°)<input id="bal-deadband" type="number" step="any" style="width:80px" onchange="setBal('deadband',this.value)"></label><label class="field">Abort tilt (°)<input id="bal-abortDeg" type="number" step="any" style="width:80px" onchange="setBal('abortDeg',this.value)"></label></div>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="bal-invertPitch" type="checkbox" onchange="setBal('invertPitch',this.checked)"><span></span></span>Invert pitch</label>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="bal-invertRoll" type="checkbox" onchange="setBal('invertRoll',this.checked)"><span></span></span>Invert roll</label>
+      </div>
+      <div class="panel stack">
+        <b class="sm">Legs: lift servo and the direction that pushes the leg down</b>
+        <table><thead><tr><th>Leg</th><th>Lift pin</th><th>Down direction</th></tr></thead><tbody><tr><td><b>FL</b></td><td><input id="bal-pin-FL" type="number" min="0" max="15" style="width:70px" onchange="setBalLeg('FL','pin',this.value)"></td><td><select id="bal-sign-FL" onchange="setBalLeg('FL','sign',this.value)"><option value="1">+ (higher angle = down)</option><option value="-1">− (lower angle = down)</option></select></td></tr><tr><td><b>FR</b></td><td><input id="bal-pin-FR" type="number" min="0" max="15" style="width:70px" onchange="setBalLeg('FR','pin',this.value)"></td><td><select id="bal-sign-FR" onchange="setBalLeg('FR','sign',this.value)"><option value="1">+ (higher angle = down)</option><option value="-1">− (lower angle = down)</option></select></td></tr><tr><td><b>RL</b></td><td><input id="bal-pin-RL" type="number" min="0" max="15" style="width:70px" onchange="setBalLeg('RL','pin',this.value)"></td><td><select id="bal-sign-RL" onchange="setBalLeg('RL','sign',this.value)"><option value="1">+ (higher angle = down)</option><option value="-1">− (lower angle = down)</option></select></td></tr><tr><td><b>RR</b></td><td><input id="bal-pin-RR" type="number" min="0" max="15" style="width:70px" onchange="setBalLeg('RR','pin',this.value)"></td><td><select id="bal-sign-RR" onchange="setBalLeg('RR','sign',this.value)"><option value="1">+ (higher angle = down)</option><option value="-1">− (lower angle = down)</option></select></td></tr></tbody></table>
+        <span class="xs dim">Defaults match your crawler: FL 4, FR 5, RL 6, RR 7 (pins 4 and 7 go down with a higher angle, pins 5 and 6 with a lower angle).</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Load &amp; safety</h2>
+    <p class="note" style="margin:4px 0 14px">For a heavy robot. The robot moves all servos of a pose together on a smooth curve and never faster than the speed limit. With feedback wires it also detects an overloaded servo, holds it instead of forcing it, slows everything down and retries. These values are written into the robot code (Prepare tab).</p>
+    <div class="split">
+      <div class="panel stack">
+        <b class="sm">Load estimate</b>
+        <div class="row" style="gap:14px"><label class="field">Leg length (cm)<input id="rb-legCm" type="number" step="any" style="width:90px" onchange="setRobot('legCm',this.value)"></label><label class="field">Robot mass (kg)<input id="rb-massKg" type="number" step="any" style="width:90px" onchange="setRobot('massKg',this.value)"></label><label class="field">Servo torque (kg·cm)<input id="rb-servoKgCm" type="number" step="any" style="width:90px" onchange="setRobot('servoKgCm',this.value)"></label></div>
+        <div id="load-calc" class="stack"></div>
+      </div>
+      <div class="panel stack">
+        <b class="sm">Motion &amp; overload protection</b>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="sf-damping" type="checkbox" onchange="setSafety('damping',this.checked)"><span></span></span>Smooth motion (damping) at start-up</label>
+        <div class="row" style="gap:14px"><label class="field">Max speed (°/s, 0 = no limit)<input id="sf-maxSpeed" type="number" step="any" style="width:90px" onchange="setSafety('maxSpeed',this.value)"></label></div>
+        <span class="xs dim">Overload detection needs the feedback wire:</span>
+        <div class="row" style="gap:14px"><label class="field">Error (°)<input id="sf-stallErr" type="number" step="any" style="width:90px" onchange="setSafety('stallErr',this.value)"></label><label class="field">For (ms)<input id="sf-stallMs" type="number" step="any" style="width:90px" onchange="setSafety('stallMs',this.value)"></label><label class="field">Retries<input id="sf-retries" type="number" step="any" style="width:90px" onchange="setSafety('retries',this.value)"></label></div>
+        <div class="row" style="gap:14px"><label class="field">Slow-down ×<input id="sf-slowdown" type="number" step="any" style="width:90px" onchange="setSafety('slowdown',this.value)"></label><label class="field">Min speed ×<input id="sf-minScale" type="number" step="any" style="width:90px" onchange="setSafety('minScale',this.value)"></label></div>
+        <span class="xs dim">Feedback: wire each servo's feedback line (through a voltage divider so it never exceeds 3.3 V) to an ESP32 ADC1 pin (GPIO 32, 33, 34, 35, 36 or 39), pick the pin in the table below, flash, then use Auto-cal.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Servo Config</h2>
     <p class="note" style="margin:4px 0 14px">Each servo has an angle range it is not allowed to leave (sliders, buttons, poses and the firmware all respect it).
       Save your setup (pins, names, limits, pulse range, ESP settings) as a JSON file, and choose that file later to apply it.</p>
@@ -495,7 +611,7 @@ input[type=checkbox]{accent-color:#0ea5e9}
     </div>
 
     <div class="scroll-x"><table>
-      <thead><tr><th>Pin</th><th>Name</th><th>Min angle</th><th>Max angle</th><th></th></tr></thead>
+      <thead><tr><th>Pin</th><th>Name</th><th>Min angle</th><th>Max angle</th><th title="Optional: ADC pin wired to the servo feedback line">Feedback pin</th><th title="ADC reading at 0°">Raw @0°</th><th title="ADC reading at 180°">Raw @180°</th><th></th></tr></thead>
       <tbody id="limits-body"></tbody>
     </table></div>
   </div>
@@ -553,6 +669,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // ---------- state ----------
 const MAX_SERVOS = 16;
+const FB_PINS = [32, 33, 34, 35, 36, 39];   // ESP32 ADC1 pins (ADC2 cannot be used while WiFi is on)
 const DEFAULT_PROFILE = 'quadru_settings';
 const ZERO_MAC = '00:00:00:00:00:00';
 
@@ -560,7 +677,7 @@ const ZERO_MAC = '00:00:00:00:00:00';
 // servomin/servomax = PCA9685 pulse ticks (out of 4096 at 50Hz) for 0° and 180°.
 const DEFAULT_CONFIG = {
   name: DEFAULT_PROFILE,
-  version: 3,
+  version: 6,
   servomin: 125,
   servomax: 540,
   servos: [
@@ -577,13 +694,25 @@ const DEFAULT_CONFIG = {
   esp: { dual: false, channel: 1, robotMac: ZERO_MAC, ctrlMac: ZERO_MAC, sda: 21, scl: 22, csda: 21, cscl: 22 },
   // Firmware options written into the generated code (verbose Serial debug, sensor fusion, compass offsets)
   fw: { robotVerbose: false, ctrlVerbose: false, robotFusion: true, ctrlFusion: true,
-        robotMag: [-50, -100, -60], ctrlMag: [-50, -100, -60] }
+        robotMag: [-50, -100, -60], ctrlMag: [-50, -100, -60] },
+  // Load protection baked into the robot firmware; 'robot' is only used for the load estimate in Settings
+  safety: { damping: true, maxSpeed: 120, stallErr: 12, stallMs: 400, retries: 2, slowdown: 0.6, minScale: 0.3 },
+  robot: { legCm: 6, massKg: 0.5, servoKgCm: 2 },
+  // Balance: PID that keeps the body level by adjusting leg extension (needs the MPU6050). Lift pins 4-7 = FL, FR, RL, RR;
+  // sign = servo direction that pushes that leg DOWN (pins 4 and 7: +, pins 5 and 6: -).
+  // Walking (four-phase crawl: FL, RR, FR, RL). rear/front = yaw angles of each leg, stance = lift angle with the leg down.
+  gait: { liftDeg: 35, tLift: 350, tSwing: 500, tLower: 350, tPush: 900, reverse: false, balance: true,
+          stance: { FL: 160, FR: 10, RL: 10, RR: 170 },
+          legs: { FL: { rear: 50, front: 125 }, FR: { rear: 130, front: 60 }, RL: { rear: 40, front: 110 }, RR: { rear: 120, front: 50 } } },
+  balance: { kp: 1.0, ki: 0.6, kd: 0.05, maxCorr: 20, deadband: 1, abortDeg: 30, invertPitch: false, invertRoll: false,
+             legs: { FL: { pin: 4, sign: 1 }, FR: { pin: 5, sign: -1 }, RL: { pin: 6, sign: -1 }, RR: { pin: 7, sign: 1 } } }
 };
 
 let cfg = { servomin: DEFAULT_CONFIG.servomin, servomax: DEFAULT_CONFIG.servomax, esp: { ...DEFAULT_CONFIG.esp },
-             fw: { ...DEFAULT_CONFIG.fw, robotMag: [...DEFAULT_CONFIG.fw.robotMag], ctrlMag: [...DEFAULT_CONFIG.fw.ctrlMag] } };
+             fw: { ...DEFAULT_CONFIG.fw, robotMag: [...DEFAULT_CONFIG.fw.robotMag], ctrlMag: [...DEFAULT_CONFIG.fw.ctrlMag] },
+             safety: { ...DEFAULT_CONFIG.safety }, robot: { ...DEFAULT_CONFIG.robot }, balance: JSON.parse(JSON.stringify(DEFAULT_CONFIG.balance)), gait: JSON.parse(JSON.stringify(DEFAULT_CONFIG.gait)) };
 let nextId = 0;
-let servoState = DEFAULT_CONFIG.servos.map(e => ({ id: nextId++, label: e.label, angle: 90, enabled: true, pin: e.pin, min: e.min, max: e.max }));
+let servoState = DEFAULT_CONFIG.servos.map(e => ({ id: nextId++, label: e.label, angle: 90, enabled: true, pin: e.pin, min: e.min, max: e.max, fbPin: -1, fbRaw0: 0, fbRaw180: 4095 }));
 const S = (id) => servoState.find(s => s.id === id);
 const servoByPin = (pin) => servoState.find(s => s.pin === pin);
 
@@ -626,6 +755,9 @@ function refreshAll() {
   renderSettings();
   renderPrepare();
   renderFw();
+  renderSafety();
+  renderBalance();
+  renderGait();
   if (editor) renderEditor();
 }
 
@@ -651,7 +783,7 @@ function freePin() {
 function addServo() {
   const pin = freePin();
   if (servoState.length >= MAX_SERVOS || pin < 0) return;
-  servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin, min: 0, max: 180 });
+  servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin, min: 0, max: 180, fbPin: -1, fbRaw0: 0, fbRaw180: 4095 });
   refreshAll();
   logTerminal(`Added servo on pin ${pin}.`);
 }
@@ -772,7 +904,11 @@ function renderSettings() {
       <td><input type="text" value="${esc(s.label)}" onchange="updateLabel(${s.id}, this.value)"></td>
       <td><input type="number" min="0" max="180" value="${s.min}" onchange="setLimit(${s.id},'min',this.value)"> °</td>
       <td><input type="number" min="0" max="180" value="${s.max}" onchange="setLimit(${s.id},'max',this.value)"> °</td>
-      <td><button class="btn btn-sm btn-ghost" onclick="setLimitBoth(${s.id},0,180)">Reset 0–180</button></td>
+      <td><select onchange="setFb(${s.id},'fbPin',this.value)"><option value="-1">none</option>${FB_PINS.map(p => `<option value="${p}" ${s.fbPin === p ? 'selected' : ''}>GPIO ${p}</option>`).join('')}</select></td>
+      <td><input type="number" min="0" max="4095" value="${s.fbRaw0}" ${s.fbPin < 0 ? 'disabled' : ''} onchange="setFb(${s.id},'fbRaw0',this.value)"></td>
+      <td><input type="number" min="0" max="4095" value="${s.fbRaw180}" ${s.fbPin < 0 ? 'disabled' : ''} onchange="setFb(${s.id},'fbRaw180',this.value)"></td>
+      <td style="white-space:nowrap"><button class="btn btn-sm btn-ghost" onclick="setLimitBoth(${s.id},0,180)">Reset 0–180</button>
+        <button class="btn btn-sm btn-ghost" ${s.fbPin < 0 ? 'disabled' : ''} onclick="fbAutoCal(${s.id})" title="Sweeps the servo between its limits (keep it free of load) and measures the feedback">Auto-cal</button></td>
     </tr>`).join('');
 }
 
@@ -832,26 +968,32 @@ function normFw(f) {
 }
 
 function currentConfig(name) {
-  return { name, version: 3, servomin: cfg.servomin, servomax: cfg.servomax,
-    servos: [...servoState].sort((a, b) => a.pin - b.pin).map(s => ({ pin: s.pin, label: s.label, min: s.min, max: s.max })),
-    esp: { ...cfg.esp }, fw: { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] } };
+  return { name, version: 6, servomin: cfg.servomin, servomax: cfg.servomax,
+    servos: [...servoState].sort((a, b) => a.pin - b.pin).map(s => ({ pin: s.pin, label: s.label, min: s.min, max: s.max, fbPin: s.fbPin, fbRaw0: s.fbRaw0, fbRaw180: s.fbRaw180 })),
+    esp: { ...cfg.esp }, fw: { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] },
+    safety: { ...cfg.safety }, robot: { ...cfg.robot }, balance: JSON.parse(JSON.stringify(cfg.balance)), gait: JSON.parse(JSON.stringify(cfg.gait)) };
 }
 
 function validateConfig(c) {
   if (!c || typeof c !== 'object' || !Array.isArray(c.servos) || c.servos.length < 1 || c.servos.length > 16) throw new Error('"servos" must list 1–16 entries');
-  const seen = new Set();
+  const seen = new Set(), seenFb = new Set();
   const servos = c.servos.map((e, i) => {
     const pin = parseInt(e.pin), min = parseInt(e.min), max = parseInt(e.max);
     if (!(pin >= 0 && pin <= 15)) throw new Error(`servo ${i + 1}: pin must be 0–15`);
     if (seen.has(pin)) throw new Error(`pin ${pin} is used twice`);
     seen.add(pin);
     if (!(min >= 0 && max <= 180 && min <= max)) throw new Error(`pin ${pin}: need 0 ≤ min ≤ max ≤ 180`);
-    return { pin, label: String(e.label || `Servo ${pin}`), min, max };
+    const fbPin = (e.fbPin === undefined || e.fbPin === null || e.fbPin === '') ? -1 : parseInt(e.fbPin);
+    if (fbPin !== -1 && !FB_PINS.includes(fbPin)) throw new Error(`pin ${pin}: feedback pin must be one of ${FB_PINS.join(', ')}`);
+    if (fbPin >= 0) { if (seenFb.has(fbPin)) throw new Error(`feedback pin ${fbPin} is used twice`); seenFb.add(fbPin); }
+    const fbRaw0 = e.fbRaw0 === undefined ? 0 : parseInt(e.fbRaw0), fbRaw180 = e.fbRaw180 === undefined ? 4095 : parseInt(e.fbRaw180);
+    if (fbPin >= 0 && !(fbRaw0 >= 0 && fbRaw0 <= 4095 && fbRaw180 >= 0 && fbRaw180 <= 4095 && Math.abs(fbRaw180 - fbRaw0) >= 100)) throw new Error(`pin ${pin}: feedback readings need 0–4095, at least 100 apart`);
+    return { pin, label: String(e.label || `Servo ${pin}`), min, max, fbPin, fbRaw0, fbRaw180 };
   });
   const smin = c.servomin === undefined ? cfg.servomin : parseInt(c.servomin);
   const smax = c.servomax === undefined ? cfg.servomax : parseInt(c.servomax);
   if (!(smin >= 0 && smax <= 4095 && smin < smax)) throw new Error('servomin/servomax invalid');
-  return { name: String(c.name || ''), version: 3, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp), fw: normFw(c.fw) };
+  return { name: String(c.name || ''), version: 6, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp), fw: normFw(c.fw), safety: normSafety(c.safety), robot: normRobot(c.robot), balance: normBalance(c.balance), gait: normGait(c.gait) };
 }
 
 function applyConfig(c) {
@@ -860,10 +1002,12 @@ function applyConfig(c) {
     const prev = old.find(o => o.pin === e.pin && !used.has(o.id));
     if (prev) used.add(prev.id);
     return { id: prev ? prev.id : nextId++, label: e.label, angle: clamp(prev ? prev.angle : 90, e.min, e.max),
-             enabled: prev ? prev.enabled : true, pin: e.pin, min: e.min, max: e.max };
+             enabled: prev ? prev.enabled : true, pin: e.pin, min: e.min, max: e.max,
+             fbPin: e.fbPin, fbRaw0: e.fbRaw0, fbRaw180: e.fbRaw180 };
   });
   cfg.servomin = c.servomin; cfg.servomax = c.servomax; cfg.esp = { ...c.esp };
   cfg.fw = { ...c.fw, robotMag: [...c.fw.robotMag], ctrlMag: [...c.fw.ctrlMag] };
+  cfg.safety = { ...c.safety }; cfg.robot = { ...c.robot }; cfg.balance = JSON.parse(JSON.stringify(c.balance)); cfg.gait = JSON.parse(JSON.stringify(c.gait));
   refreshAll();
   renderBoardDiagram(currentBoard);
   updateSequenceUI();
@@ -892,11 +1036,13 @@ function bakedSpec(role, c) {
   c.servos.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
   const e = c.esp, f = c.fw;
   const link = e.dual ? { dual: true, channel: e.channel, robotMac: e.robotMac, ctrlMac: e.ctrlMac } : { dual: false };
-  if (role === 0) return { g: 3, role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link,
-    v: f.robotVerbose, fu: f.robotFusion, mag: f.robotFusion ? f.robotMag : null };
-  return { g: 3, role: 1, link, v: f.ctrlVerbose, fu: f.ctrlFusion, mag: f.ctrlFusion ? f.ctrlMag : null,
+  if (role === 0) return { g: 6, role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link,
+    v: f.robotVerbose, fu: f.robotFusion, mag: f.robotFusion ? f.robotMag : null, sf: c.safety, bal: f.robotFusion ? c.balance : null,
+    fb: c.servos.filter(s => s.fbPin >= 0).map(s => [s.pin, s.fbPin, s.fbRaw0, s.fbRaw180]) };
+  return { g: 6, role: 1, link, v: f.ctrlVerbose, fu: f.ctrlFusion, mag: f.ctrlFusion ? f.ctrlMag : null,
     i2c: f.ctrlFusion ? [e.csda, e.cscl] : null };
 }
+
 function cfgId(role, c) { return fnv1a(JSON.stringify(bakedSpec(role, c))); }
 
 function loadStoredProfiles() {
@@ -1220,7 +1366,7 @@ function updateSequenceUI() {
 
 function setPlayUI(playing) {
   const b = $('play-seq-btn');
-  b.textContent = playing ? '■ Stop' : '▶ Play Sequence';
+  b.textContent = playing ? '■ Stop' : '▶ Play (stream)';
   b.className = 'btn ' + (playing ? 'btn-rose' : 'btn-green');
 }
 async function playSequence() {
@@ -1301,7 +1447,7 @@ function renderEditor() {
       <button class="btn btn-green" onclick="editorUpdate()" title="Send this pose to the servos one time">➤ Update</button>
       <button class="btn btn-ghost" onclick="toggleLive()" title="While on, the servos follow the sliders as you drag"><span class="toggle-pill ${editor.live ? 'on' : ''}"></span>Live</button>
       <button class="btn btn-ghost" onclick="editorUndo()" title="Put the values back to how they were when you opened this popup">↺ Undo</button>
-      <button class="btn btn-ghost" onclick="editorPhysical()" title="Copy the positions currently applied on the real servos into this pose">✋ Physical</button>
+      <button class="btn btn-ghost" onclick="editorPhysical()" title="Copy the positions of the real servos into this pose (measured by the feedback wire when available)">✋ Physical</button>
       <button class="btn btn-brand" style="margin-left:auto" onclick="closeEditor()">Done</button>`;
   } else {
     dlg.classList.remove('wide');
@@ -1363,10 +1509,17 @@ function editorUndo() {
 }
 function editorPhysical() {
   if (!editor || editor.type !== 'pose') return;
-  servoState.forEach(s => { editor.target.angles[s.pin] = s.angle; });
+  const now = performance.now();
+  let measured = 0;
+  servoState.forEach(s => {
+    const arr = mon.d[s.pin], last = arr && arr[arr.length - 1];
+    let v = s.angle;
+    if (last && now - last.t < 3000) { if (last.ac !== null) { v = last.ac; measured++; } else v = last.cm; }   // measured (feedback) > commanded by the robot > last sent
+    editor.target.angles[s.pin] = clamp(v, s.min, s.max);
+  });
   markDirty(editor.target.id);
   renderEditor();
-  logTerminal('Copied current physical positions into the pose.');
+  logTerminal(measured ? `Copied the physical positions measured by the servo feedback (${measured} servo${measured > 1 ? 's' : ''}).` : 'Copied the current servo positions into the pose.');
 }
 
 // ---------- WebSerial + device detection ----------
@@ -1443,12 +1596,17 @@ function parseHello(line) {
   const kv = {};
   line.replace(/^HELLO\s*/, '').split(/\s+/).forEach(t => { const i = t.indexOf('='); if (i > 0) kv[t.slice(0, i)] = t.slice(i + 1); });
   return { mode: parseInt(kv.mode), name: kv.name || '', cfg: kv.cfg || '', mac: (kv.mac || '').toUpperCase(),
-           fusion: parseInt(kv.fusion) || 0, fstream: parseInt(kv.fstream) || 0, compass: parseInt(kv.compass) || 0 };
+           fusion: parseInt(kv.fusion) || 0, fstream: parseInt(kv.fstream) || 0, compass: parseInt(kv.compass) || 0, prog: parseInt(kv.prog) || 0, fb: parseInt(kv.fb) || 0, bal: parseInt(kv.bal) || 0 };
 }
 
 function handleDeviceLine(line) {
   if (!line) return;
   if (line.startsWith('Q ')) { handleQuatLine(line); return; }
+  if (line.startsWith('B r ')) { handleTiltLine(line); return; }   // body tilt + balance state
+  if (line.startsWith('T r ')) { handleTelemLine(line); return; }   // servo telemetry (target / commanded / physical)
+  if (line.startsWith('RSTAT ')) handleRstat(line);
+  if (line.startsWith('FBCAL ')) handleFbCal(line);
+  if (ackWait && (line === 'OK ' + ackWait.key || line === 'ERR ' + ackWait.key)) { const w = ackWait; ackWait = null; w.resolve(line.startsWith('OK')); return; }
   if (line.startsWith('M ')) { handleMagLine(line); return; }   // raw compass samples (calibration)
   if (line.startsWith('FUSION calibrating')) cal.gyro = 'running';
   if (line.startsWith('FUSION gyro calibrated')) cal.gyro = 'done';   // orientation data: not logged (too frequent)
@@ -1462,6 +1620,7 @@ function handleDeviceLine(line) {
       clearTimeout(helloTimer);
       if (cfg.esp.dual && MODE_NAMES[info.mode]) { prepView = info.mode === 1 ? 'ctrl' : 'robot'; renderPrepare(); }
       showDeviceModal(info);
+      if (info.prog) { sendRaw('c 1 1\n'); sendRaw('c 8 ' + (cfg.safety.damping ? 1 : 0) + '\n'); }   // servo telemetry on (graphs), smooth motion as set
       if (info.mode === 1 && info.fusion === 1 && fusionWant) sendRaw('f 1\n');   // start the controller's own orientation stream
       fusionControlsState();
     }
@@ -1606,22 +1765,6 @@ function commonDefs(role, name, id, verbose) {
 #define LOG(...)    do { if (VERBOSE) Serial.printf(__VA_ARGS__); } while (0)`;
 }
 
-// HELLO line: device mode, config id, real STA MAC, sensor fusion state
-function helloFn(fusionBuilt, streamExpr) {
-  return `void macToStr(char *out) {   // out needs 18 bytes
-  uint8_t m[6];
-  esp_read_mac(m, ESP_MAC_WIFI_STA);
-  snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
-}
-
-void printHello() {
-  char mac[18];
-  macToStr(mac);
-  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%s fusion=%d fstream=%d compass=%d\\n",
-                DEVICE_MODE, DEVICE_NAME, CFG_ID, mac, ${fusionBuilt ? 'fusionState' : '0'}, ${streamExpr}, ${fusionBuilt ? '(magOk ? 1 : 0)' : '0'});
-}`;
-}
-
 const READ_SERIAL = `void readSerial() {
   while (Serial.available()) {
     char ch = Serial.read();
@@ -1630,7 +1773,7 @@ const READ_SERIAL = `void readSerial() {
       line = "";
     } else if (ch != '\\r') {
       line += ch;
-      if (line.length() > 40) line = "";
+      if (line.length() > 700) line = "";
     }
   }
 }`;
@@ -1659,6 +1802,9 @@ float gyroBiasX = 0, gyroBiasY = 0, gyroBiasZ = 0;
 unsigned long lastFusionUs = 0;
 int fusionTick = 0;
 float qW = 1, qX = 0, qY = 0, qZ = 0;
+// body tilt for balancing (sensor X forward, Z up): pitch + = nose down, roll + = right side down
+float tiltPitch = 0, tiltRoll = 0, tiltPitchRate = 0, tiltRollRate = 0;
+bool tiltInit = false;
 
 bool readMagRaw(int16_t &rx, int16_t &ry, int16_t &rz) {
   Wire.beginTransmission(MAG_ADDR);
@@ -1740,6 +1886,14 @@ bool updateFusion() {
   float gy = (g.gyro.y - gyroBiasY) * 57.2958f;
   float gz = (g.gyro.z - gyroBiasZ) * 57.2958f;
 
+  float accPitch = atan2f(-a.acceleration.x, sqrtf(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) * 57.2958f;
+  float accRoll = atan2f(a.acceleration.y, a.acceleration.z) * 57.2958f;
+  if (!tiltInit) { tiltPitch = accPitch; tiltRoll = accRoll; tiltInit = true; }
+  tiltPitch = 0.98f * (tiltPitch + gy * 0.01f) + 0.02f * accPitch;   // gyro for speed, accelerometer for the long-term truth
+  tiltRoll = 0.98f * (tiltRoll + gx * 0.01f) + 0.02f * accRoll;
+  tiltPitchRate = gy;
+  tiltRollRate = gx;
+
   float mx, my, mz;
   if (magOk && readMag(mx, my, mz)) {
     filter.update(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z, mx, my, mz);
@@ -1764,125 +1918,709 @@ void printQuat(char src) {
 }`;
 }
 
+// HELLO line: device mode, config id, real STA MAC, sensor fusion state, features
+function helloFn(fusionBuilt, streamExpr, fbExpr, balExpr) {
+  return String.raw`void macToStr(char *out) {   // out needs 18 bytes
+  uint8_t m[6];
+  esp_read_mac(m, ESP_MAC_WIFI_STA);
+  snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+}
+
+void printHello() {
+  char mac[18];
+  macToStr(mac);
+  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%s fusion=%d fstream=%d compass=%d prog=1 fb=%d bal=%d\n",
+                DEVICE_MODE, DEVICE_NAME, CFG_ID, mac, ${fusionBuilt ? 'fusionState' : '0'}, ${streamExpr}, ${fusionBuilt ? '(magOk ? 1 : 0)' : '0'}, ${fbExpr}, ${balExpr});
+}`;
+}
+
+const PROTO_DEFS = String.raw`// ---- radio protocol (shared by robot and controller) ----
+#define CMD_PROG    0xB1   // controller -> robot: chunk of a sequence program (upload, then run)
+#define CMD_STOP    0xB4   // controller -> robot: stop the running program
+#define CMD_BATCH   0xB6   // controller -> robot: move several servos together (one packet)
+#define CMD_CTRL    0xB7   // controller -> robot: small settings (telemetry, loop, clear overload, speed, balance)
+#define CMD_BAL     0xB8   // controller -> robot: balance gains
+#define MSG_IMU     0xA1   // robot -> controller: orientation
+#define MSG_STATUS  0xA2   // robot -> controller: events (program received, overload ...)
+#define MSG_TELEM   0xA3   // robot -> controller: servo target / commanded / physical positions
+#define MSG_TILT    0xA4   // robot -> controller: body tilt and balance state
+#define CHUNK_BYTES 200    // program bytes per packet (ESP-NOW allows 250)`;
+
+// prints one telemetry packet as a text line for the web page
+const TELEM_PRINT = String.raw`// "T r <mask> <stalledMask> <flags> target:commanded:physical,..."  (physical = -1 when the servo has no feedback)
+void printTelemetry(const uint8_t *b, int len) {
+  uint16_t mask = b[1] | (b[2] << 8), stm = b[3] | (b[4] << 8);
+  char out[260];
+  int n = snprintf(out, sizeof(out), "T r %u %u %u ", (unsigned)mask, (unsigned)stm, (unsigned)b[5]);
+  int idx = 6;
+  bool first = true;
+  for (int p = 0; p < 16; p++) {
+    if (!(mask & (1 << p))) continue;
+    if (idx + 3 > len || n > (int)sizeof(out) - 16) break;
+    int a = b[idx + 2];
+    n += snprintf(out + n, sizeof(out) - n, "%s%d:%d:%d", first ? "" : ",", b[idx], b[idx + 1], a == 255 ? -1 : a);
+    idx += 3;
+    first = false;
+  }
+  Serial.println(out);
+}`;
+
 function robotFirmware() {
-  const c = currentConfig('current'), e = c.esp, f = c.fw, dual = e.dual, fu = f.robotFusion;
+  const c = currentConfig('current'), e = c.esp, f = c.fw, sf = c.safety, dual = e.dual, fu = f.robotFusion;
   const lo = Array(16).fill(0), hi = Array(16).fill(180);
-  servoState.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
+  const fbPin = Array(16).fill(-1), raw0 = Array(16).fill(0), raw180 = Array(16).fill(4095);
+  c.servos.forEach(sv => { lo[sv.pin] = sv.min; hi[sv.pin] = sv.max; if (sv.fbPin >= 0) { fbPin[sv.pin] = sv.fbPin; raw0[sv.pin] = sv.fbRaw0; raw180[sv.pin] = sv.fbRaw180; } });
+  const fbCount = fbPin.filter(x => x >= 0).length;
   const id = cfgId(0, c);
   const inc = ['#include <Wire.h>', '#include <Adafruit_PWMServoDriver.h>',
     ...(dual ? ['#include <WiFi.h>', '#include <esp_now.h>', '#include <esp_wifi.h>', '#include <esp_err.h>'] : []),
-    '#include <esp_mac.h>', '#include <string.h>', ...(fu ? [FUSION_INCLUDES] : [])].join('\n');
-
-  const radio = dual ? `
-// ---- ESP-NOW link ----
-const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept servo commands from any sender
-struct ServoMsg {
-  uint8_t pin;
-  uint8_t angle;
-};
-${fu ? `struct __attribute__((packed)) ImuMsg {   // robot -> controller telemetry
-  uint8_t type;
-  float w, x, y, z;
-};
-#define IMU_MSG_TYPE 0xA1
-const uint8_t BCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-
-void sendQuat() {
-  ImuMsg m = { IMU_MSG_TYPE, qW, qX, qY, qZ };
-  esp_now_send(BCAST_MAC, (const uint8_t *)&m, sizeof(m));
-}
-` : ''}
-bool senderAllowed(const uint8_t *src) {
-  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) return memcmp(src, CONTROLLER_MAC, 6) == 0;
-  return true;
-}
-
-// Radio callback: only stores the command. loop() moves the servo, so the I2C bus is
-// never used from two tasks at once (the sensors share it with the PCA9685).
-void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  if (len != sizeof(ServoMsg)) { LOG("ERR unexpected packet length %d\\n", len); return; }
-  if (info != nullptr && info->src_addr != nullptr && !senderAllowed(info->src_addr)) { LOG("Ignored packet from unknown sender\\n"); return; }
-  ServoMsg msg;
-  memcpy(&msg, data, sizeof(msg));
-  if (msg.pin > 15 || msg.angle > 180) { LOG("ERR invalid servo command\\n"); return; }
-  pendingAngle[msg.pin] = msg.angle;
-}
-` : '';
-
-  const radioSetup = dual ? `
-  if (!WiFi.mode(WIFI_STA)) {
-    Serial.println("ERR WiFi STA mode failed");
-    return;
-  }
-  delay(100);
-  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
-  LOG("Set channel %d: %d (%s)\\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
-
-  err = esp_now_init();
-  if (err != ESP_OK) {
-    Serial.printf("ERR ESP-NOW init: %d (%s)\\n", err, esp_err_to_name(err));
-    return;
-  }
-  esp_now_register_recv_cb(onRecv);
-${fu ? `
-  esp_now_peer_info_t bp = {};   // broadcast peer for the telemetry
-  memcpy(bp.peer_addr, BCAST_MAC, 6);
-  bp.channel = ESPNOW_CHANNEL;
-  bp.ifidx = WIFI_IF_STA;
-  bp.encrypt = false;
-  err = esp_now_add_peer(&bp);
-  LOG("Telemetry peer: %d (%s)\\n", err, esp_err_to_name(err));
-` : ''}  LOG("ESP-NOW ready\\n");
-` : '';
+    '#include <esp_mac.h>', '#include <string.h>', '#include <math.h>', ...(fu ? [FUSION_INCLUDES] : [])].join('\n');
+  const flt = (x) => (Number.isInteger(x) ? x + '.0f' : x + 'f');
+  const bl = c.balance, L = bl.legs;
 
   const sections = [
-`/*
- * Robot Firmware - ${dual ? 'ESP32 Arduino core 3.x' : 'ESP32'} - DEVICE MODE 0 (ROBOT)
+String.raw`/*
+ * Robot Firmware - ESP32 Arduino core 3.x - DEVICE MODE 0 (ROBOT)
  * Generated by PCA9685 Control Studio.
- * PCA9685 servo driver${dual ? ' + ESP-NOW receiver' : ''}${fu ? ' + sensor fusion (MPU6050 + compass)' : ''}
+ * PCA9685 servos with a smooth, synchronized, speed-limited motion engine,
+ * an on-board sequence player (upload once, then run / loop locally)${dual ? ', ESP-NOW receiver' : ''}${fu ? ', sensor fusion' : ''}
  * Libraries: "Adafruit PWM Servo Driver Library"${fu ? ', "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"' : ''}
- * Serial (115200):  "s <pin> <angle>"  move a servo,  "?"  identify${fu ? ',  "g"  recalibrate the gyro (keep still),  "m 1|0"  raw compass stream,  "o x y z"  compass offsets' : ''}
+ * Serial (115200):  s <pin> <angle>   PU ... (program chunk)   PS (stop)   c <id> <arg>   ?${fu ? '   g   m 1|0   o x y z' : ''}   fbcal <pin>   fbset <pin> <raw0> <raw180>
  */`,
 inc,
-`${commonDefs(0, 'ROBOT', id, f.robotVerbose)}
+String.raw`${commonDefs(0, 'ROBOT', id, f.robotVerbose)}
 
 #define SDA_PIN ${e.sda}
 #define SCL_PIN ${e.scl}
 #define SERVO_FREQ 50
 #define SERVOMIN ${c.servomin}   // pulse count (out of 4096) at 0 degrees
 #define SERVOMAX ${c.servomax}   // pulse count (out of 4096) at 180 degrees${dual ? `\n#define ESPNOW_CHANNEL ${e.channel}` : ''}
+#define PROG_MAX 2048            // bytes of sequence program the robot can store
 
 // Allowed angle range per PCA9685 pin (from your servo config)
 const int LIM_MIN[16] = {${lo.join(', ')}};
 const int LIM_MAX[16] = {${hi.join(', ')}};
 
+// ---- load safety (web Settings -> Load & safety) ----
+#define MAX_SPEED_DPS    ${sf.maxSpeed > 0 ? flt(sf.maxSpeed) : '100000.0f'}   // fastest a servo may move (deg/s)${sf.maxSpeed > 0 ? '' : ' (no limit)'}
+#define DAMP_DEFAULT     ${sf.damping ? 1 : 0}   // smooth motion (speed limit + easing) at start-up; the web page can switch it live
+#define STALL_ERR_DEG    ${flt(sf.stallErr)}   // overload if the servo is this far from where it was told to be ...
+#define STALL_MS         ${Math.round(sf.stallMs)}      // ... for this long (needs the feedback wire)
+#define STALL_RETRIES    ${Math.round(sf.retries)}        // slow-down retries before the program is stopped
+#define SLOWDOWN_FACTOR  ${flt(sf.slowdown)}   // every servo slows to this fraction after an overload
+#define MIN_SPEED_SCALE  ${flt(sf.minScale)}
+
+// ---- optional position feedback: ADC1 pin wired to each servo's feedback line, -1 = none ----
+const int8_t FB_PIN[16] = {${fbPin.join(', ')}};
+float fbRaw0[16]   = {${raw0.join(', ')}};      // ADC reading at 0 degrees
+float fbRaw180[16] = {${raw180.join(', ')}};    // ADC reading at 180 degrees
+#define FB_COUNT ${fbCount}
+
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();   // I2C address 0x40
 String line;
-volatile int16_t pendingAngle[16];   // -1 = nothing waiting (filled by the radio callback, applied in loop)`,
+volatile int16_t pendingAngle[16];   // -1 = nothing waiting (filled by the radio callback, applied in loop)
+volatile uint16_t pendingBatch = 0;  // pins that arrived together in one batch packet
+
+// motion engine state
+float cmdAngle[16];  bool cmdKnown[16];  int lastTicks[16];   // what is being output now
+float tgtAngle[16];  bool chase[16];                          // where each servo is heading
+float biasTgt[16], biasCur[16], outAngle[16];                // balance correction added on top of the commanded angle, and what is really output
+bool dampOn = DAMP_DEFAULT;                                   // smooth motion on/off
+float actAngle[16];  bool fbValid[16];                        // physical position (feedback)
+bool stalled[16];    uint32_t errSince[16];
+bool grpActive = false;  uint16_t grpMask = 0;  float grpFrom[16], grpTo[16];  uint32_t grpStart = 0, grpDur = 1;
+float speedScale = 1.0f;  bool overloadLatched = false;  int overloadRetries = 0;
+uint32_t lastTick = 0, lastFb = 0, lastTelMs = 0;  bool telemetryOn = false;
+
+// sequence program state
+uint8_t prog[PROG_MAX];  uint16_t progLen = 0, progGot = 0, progCrc = 0;  uint8_t progId = 0, progSteps = 0;
+bool progValid = false, progLoop = false, markSent = false;
+uint16_t progLoopPc = 0;
+bool running = false, inMove = false, waiting = false, retryPending = false;
+uint16_t pc = 0, stepPc = 0, stepMask = 0;  uint32_t waitUntil = 0, retryAt = 0, settleUntil = 0;
+bool settling = false;`,
 fu ? fusionBlock(f.robotMag) : '',
-helloFn(fu, fu ? '(fusionState == 1 ? 1 : 0)' : '0'),
-`int angleToTicks(int angle) {
-  return map(angle, 0, 180, SERVOMIN, SERVOMAX);
+helloFn(fu, fu ? '(fusionState == 1 ? 1 : 0)' : '0', 'FB_COUNT', fu ? '(fusionState == 1 ? 1 : 0)' : '0'),
+PROTO_DEFS,
+TELEM_PRINT,
+String.raw`enum { ST_PROG_OK = 1, ST_PROG_BAD, ST_RUN_START, ST_RUN_END, ST_STOPPED, ST_OVERLOAD, ST_ABORT, ST_SLOWDOWN, ST_GAP, ST_CLEARED, ST_BAL_ON, ST_BAL_OFF, ST_BAL_REFUSED, ST_LOOP_MARK };
+${dual ? String.raw`
+const uint8_t BCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};   // telemetry and status are broadcast to the controller
+bool radioUp = false;
+${fu ? String.raw`struct __attribute__((packed)) ImuMsg {   // robot -> controller orientation
+  uint8_t type;
+  float w, x, y, z;
+};
+
+void sendQuat() {
+  ImuMsg m = { MSG_IMU, qW, qX, qY, qZ };
+  if (radioUp) esp_now_send(BCAST_MAC, (const uint8_t *)&m, sizeof(m));
+}
+` : ''}` : ''}
+// Events go to Serial and (with a controller) over the radio: "RSTAT <code> <a> <b>"
+void sendStatus(uint8_t code, uint8_t a, uint8_t b) {
+  Serial.printf("RSTAT %d %d %d\n", code, a, b);${dual ? `
+  if (radioUp) {
+    uint8_t m[4] = { MSG_STATUS, code, a, b };
+    esp_now_send(BCAST_MAC, m, sizeof(m));
+  }` : ''}
+}`,
+String.raw`${fu ? 'void balanceOff(int reason);   // defined below (the balance controller)' : 'void balanceOff(int reason) {}   // no sensor fusion in this build: nothing to switch off'}
+
+// ================= motion engine =================
+// Every move is time based: all servos of a pose start together and arrive together on a smooth curve.
+// If a servo would have to move faster than MAX_SPEED_DPS, the whole move is stretched, so the load stays shared.
+uint16_t u16(const uint8_t *p) {
+  return p[0] | (p[1] << 8);
 }
 
-void moveServo(int pin, int angle) {
-  if (pin < 0 || pin > 15) return;
-  angle = constrain(angle, LIM_MIN[pin], LIM_MAX[pin]);
-  pwm.setPWM(pin, 0, angleToTicks(angle));
-  LOG("Moving pin %d to angle %d\\n", pin, angle);
+int angleToTicks(float angle) {
+  return (int)lroundf(SERVOMIN + (angle / 180.0f) * (SERVOMAX - SERVOMIN));
 }
 
-void applyPending() {   // newest command per servo wins
+float limitDps() {   // damping off = no speed limit
+  return dampOn ? MAX_SPEED_DPS * speedScale : 100000.0f;
+}
+
+void outputServo(int pin) {   // commanded angle + balance correction, clamped; the pulse is only written when it changes
+  float o = constrain(cmdAngle[pin] + biasCur[pin], (float)LIM_MIN[pin], (float)LIM_MAX[pin]);
+  int ticks = angleToTicks(o);
+  if (ticks != lastTicks[pin]) {
+    pwm.setPWM(pin, 0, ticks);
+    lastTicks[pin] = ticks;
+  }
+  outAngle[pin] = o;
+}
+
+void writeServo(int pin, float angle) {   // clamps to the limits
+  cmdAngle[pin] = constrain(angle, (float)LIM_MIN[pin], (float)LIM_MAX[pin]);
+  cmdKnown[pin] = true;
+  outputServo(pin);
+}
+
+float readRaw(int pin) {
+  long sum = 0;
+  for (int i = 0; i < 16; i++) sum += analogRead(FB_PIN[pin]);
+  return sum / 16.0f;
+}
+
+void readFeedback() {
   for (int p = 0; p < 16; p++) {
-    int a = pendingAngle[p];
-    if (a >= 0) {
-      pendingAngle[p] = -1;
-      moveServo(p, a);
+    if (FB_PIN[p] < 0) continue;
+    float span = fbRaw180[p] - fbRaw0[p];
+    if (fabsf(span) < 50.0f) { fbValid[p] = false; continue; }
+    int sum = 0;
+    for (int i = 0; i < 4; i++) sum += analogRead(FB_PIN[p]);
+    float deg = (sum / 4.0f - fbRaw0[p]) * 180.0f / span;
+    actAngle[p] = fbValid[p] ? actAngle[p] * 0.6f + deg * 0.4f : deg;
+    fbValid[p] = true;
+  }
+}
+
+// A servo is overloaded: stop pushing, hold where it really is, stop the whole move, slow everything down and retry.
+void onStall(int pin) {
+  float hold = fbValid[pin] ? actAngle[pin] : outAngle[pin];
+  balanceOff(4);
+  stalled[pin] = true;
+  biasTgt[pin] = 0; biasCur[pin] = 0;
+  writeServo(pin, hold);
+  tgtAngle[pin] = cmdAngle[pin];
+  chase[pin] = false;
+  if (grpActive) {
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+    grpActive = false;
+    grpMask = 0;
+  }
+  overloadRetries++;
+  sendStatus(ST_OVERLOAD, pin, overloadRetries);
+  if (running && overloadRetries <= STALL_RETRIES) {
+    speedScale = fmaxf(MIN_SPEED_SCALE, speedScale * SLOWDOWN_FACTOR);
+    sendStatus(ST_SLOWDOWN, (uint8_t)lroundf(speedScale * 100), 0);
+    retryPending = true;
+    retryAt = millis() + 700;
+  } else {
+    running = false; inMove = false; settling = false; waiting = false; retryPending = false;
+    overloadLatched = true;
+    sendStatus(ST_ABORT, pin, 0);
+  }
+}
+
+void checkStalls(uint32_t now) {
+  for (int p = 0; p < 16; p++) {
+    if (!fbValid[p] || !cmdKnown[p] || stalled[p]) continue;
+    if (fabsf(outAngle[p] - actAngle[p]) > STALL_ERR_DEG) {
+      if (errSince[p] == 0) errSince[p] = now;
+      else if (now - errSince[p] > STALL_MS) { onStall(p); return; }
+    } else {
+      errSince[p] = 0;
     }
   }
+}
+
+void clearOverload() {
+  for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+  overloadLatched = false;
+  overloadRetries = 0;
+  retryPending = false;
+  speedScale = 1.0f;
+  sendStatus(ST_CLEARED, 0, 0);
+}
+
+void setTarget(int pin, float angle) {   // one servo: chases its target at the speed limit
+  if (pin < 0 || pin > 15) return;
+  if (stalled[pin]) { LOG("Pin %d is overloaded and held (clear it from the web page)\n", pin); return; }
+  angle = constrain(angle, (float)LIM_MIN[pin], (float)LIM_MAX[pin]);
+  tgtAngle[pin] = angle;
+  if (!cmdKnown[pin]) writeServo(pin, fbValid[pin] ? actAngle[pin] : angle);   // unknown start: begin where the servo really is
+  grpMask &= ~(1 << pin);
+  chase[pin] = true;
+}
+
+void startGroup(uint16_t mask, uint32_t durMs) {   // several servos, tgtAngle[] already set
+  float lim = limitDps();
+  float T = (float)durMs;
+  for (int p = 0; p < 16; p++) {
+    if (!(mask & (1 << p))) continue;
+    if (stalled[p]) { mask &= ~(1 << p); continue; }
+    float from = cmdKnown[p] ? cmdAngle[p] : (fbValid[p] ? actAngle[p] : tgtAngle[p]);
+    if (!cmdKnown[p]) writeServo(p, from);
+    grpFrom[p] = from;
+    grpTo[p] = tgtAngle[p];
+    float need = 1.5f * fabsf(grpTo[p] - from) / lim * 1000.0f;   // smooth-step peaks at 1.5x the average speed
+    if (need > T) T = need;
+  }
+  if (grpActive) {   // servos of an earlier move that are not in this one simply stop where they are
+    for (int p = 0; p < 16; p++) if ((grpMask & (1 << p)) && !(mask & (1 << p))) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+  }
+  for (int p = 0; p < 16; p++) if (mask & (1 << p)) chase[p] = false;
+  grpMask = mask;
+  grpStart = millis();
+  grpDur = (T < 1.0f) ? 1 : (uint32_t)T;
+  grpActive = (mask != 0);
+}
+
+void motionTick() {
+  uint32_t now = millis();
+  if (now - lastTick < 10) return;
+  float dt = (now - lastTick) / 1000.0f;
+  lastTick = now;
+  if (now - lastFb >= 20) {
+    lastFb = now;
+    readFeedback();
+    checkStalls(now);
+  }
+  if (grpActive) {
+    float t = (float)(now - grpStart) / (float)grpDur;
+    if (t > 1.0f) t = 1.0f;
+    float e = dampOn ? t * t * (3.0f - 2.0f * t) : t;   // damping: smooth start and stop
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) writeServo(p, grpFrom[p] + (grpTo[p] - grpFrom[p]) * e);
+    if (t >= 1.0f) { grpActive = false; grpMask = 0; }
+  }
+  float step = limitDps() * dt;
+  for (int p = 0; p < 16; p++) {
+    if (!chase[p]) continue;
+    float d = tgtAngle[p] - cmdAngle[p];
+    if (fabsf(d) <= step) { writeServo(p, tgtAngle[p]); chase[p] = false; }
+    else writeServo(p, cmdAngle[p] + (d > 0 ? step : -step));
+  }
+  for (int p = 0; p < 16; p++) {   // the balance correction slews too
+    if (biasCur[p] == biasTgt[p]) continue;
+    float d = biasTgt[p] - biasCur[p];
+    biasCur[p] += (fabsf(d) <= step) ? d : (d > 0 ? step : -step);
+    if (cmdKnown[p]) outputServo(p);
+  }
+}
+
+void sendTelemetry() {
+  uint8_t b[64];
+  uint16_t mask = 0, stm = 0;
+  int n = 6;
+  for (int p = 0; p < 16; p++) {
+    if (!cmdKnown[p]) continue;
+    mask |= 1 << p;
+    if (stalled[p]) stm |= 1 << p;
+    b[n++] = (uint8_t)constrain((int)lroundf(tgtAngle[p]), 0, 180);
+    b[n++] = (uint8_t)constrain((int)lroundf(outAngle[p]), 0, 180);
+    b[n++] = fbValid[p] ? (uint8_t)constrain((int)lroundf(actAngle[p]), 0, 180) : 255;
+  }
+  b[0] = MSG_TELEM;
+  b[1] = mask & 255; b[2] = mask >> 8;
+  b[3] = stm & 255;  b[4] = stm >> 8;
+  b[5] = (running ? 1 : 0) | (overloadLatched ? 2 : 0) | (dampOn ? 4 : 0);
+  printTelemetry(b, n);${dual ? '\n  if (radioUp) esp_now_send(BCAST_MAC, b, n);' : ''}
+}
+
+// ================= sequence program =================
+// Steps: 1 = MOVE (duration u16, servo mask u16, one angle byte per servo in the mask)   2 = WAIT (ms u16)
+uint16_t crc16(const uint8_t *d, uint16_t n) {
+  uint16_t c = 0xFFFF;
+  for (uint16_t i = 0; i < n; i++) {
+    c ^= (uint16_t)d[i] << 8;
+    for (int b = 0; b < 8; b++) c = (c & 0x8000) ? (uint16_t)((c << 1) ^ 0x1021) : (uint16_t)(c << 1);
+  }
+  return c;
+}
+
+bool validateProgram() {   // walks the steps once so the player never reads outside the buffer
+  uint16_t i = 0;
+  int steps = 0;
+  bool markFound = false;
+  progLoopPc = 0;
+  while (i < progLen) {
+    uint8_t t = prog[i++];
+    if (t == 1) {
+      if (i + 4 > progLen) return false;
+      uint16_t mask = u16(prog + i + 2);
+      i += 4;
+      for (int p = 0; p < 16; p++) if (mask & (1 << p)) { if (i >= progLen || prog[i] > 180) return false; i++; }
+    } else if (t == 2) {
+      if (i + 2 > progLen) return false;
+      i += 2;
+    } else if (t == 3) {   // loop marker: when the program loops it starts again here, not at the beginning
+      if (!markFound) { progLoopPc = i; markFound = true; }
+    } else {
+      return false;
+    }
+    steps++;
+  }
+  progSteps = steps > 255 ? 255 : steps;
+  return progLen > 0;
+}
+
+void startProgram(bool loopIt) {
+  if (!progValid) return;
+  for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+  overloadLatched = false; overloadRetries = 0; retryPending = false; speedScale = 1.0f; markSent = false;
+  progLoop = loopIt; pc = 0; stepPc = 0; inMove = false; settling = false; waiting = false; running = true;
+  sendStatus(ST_RUN_START, progId, progLoop ? 1 : 0);
+}
+
+void stopProgram(bool report) {
+  running = false; inMove = false; settling = false; waiting = false; retryPending = false;
+  if (grpActive) {
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+    grpActive = false;
+    grpMask = 0;
+  }
+  if (report) sendStatus(ST_STOPPED, 0, 0);
+}
+
+bool progReceive(uint8_t id, uint8_t flags, uint16_t total, uint16_t crc, uint16_t off, const uint8_t *d, int len) {
+  if (off == 0) {
+    if (total == 0 || total > PROG_MAX) { sendStatus(ST_PROG_BAD, 1, 0); return false; }
+    stopProgram(false);
+    progId = id; progLen = total; progGot = 0; progCrc = crc; progValid = false;
+  } else if (id != progId || progLen == 0) {
+    sendStatus(ST_PROG_BAD, 3, 0);
+    return false;
+  }
+  if (off < progGot) return true;                 // duplicate: the sender retried
+  if (off > progGot) { sendStatus(ST_GAP, progGot & 255, progGot >> 8); return false; }
+  if ((uint32_t)off + len > progLen) { sendStatus(ST_PROG_BAD, 4, 0); return false; }
+  memcpy(prog + off, d, len);
+  progGot += len;
+  if (progGot == progLen) {
+    if (crc16(prog, progLen) != progCrc || !validateProgram()) { progValid = false; sendStatus(ST_PROG_BAD, 2, 0); return false; }
+    progValid = true;
+    sendStatus(ST_PROG_OK, progId, progSteps);
+    if (flags & 1) startProgram((flags & 2) != 0);
+  }
+  return true;
+}
+
+void programTick() {
+  if (!running) return;
+  uint32_t now = millis();
+  if (retryPending) {
+    if ((int32_t)(now - retryAt) < 0) return;
+    retryPending = false;
+    for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+    pc = stepPc; inMove = false; settling = false; waiting = false;
+  }
+  if (inMove) {
+    if (grpActive) return;
+    if (!settling) { settling = true; settleUntil = now + STALL_MS + 300; }   // let feedback servos catch up so an overload is noticed before the next step
+    if ((int32_t)(now - settleUntil) < 0) {
+      bool ok = true;
+      for (int p = 0; p < 16; p++) if ((stepMask & (1 << p)) && fbValid[p] && !stalled[p] && fabsf(outAngle[p] - actAngle[p]) > STALL_ERR_DEG * 0.5f) ok = false;
+      if (!ok) return;
+    }
+    inMove = false;
+    settling = false;
+  }
+  if (waiting) { if ((int32_t)(now - waitUntil) < 0) return; waiting = false; }
+  if (pc >= progLen) {
+    if (progLoop) {
+      pc = progLoopPc;
+    } else {
+      running = false;
+      sendStatus(ST_RUN_END, progId, 0);
+      return;
+    }
+  }
+  stepPc = pc;
+  uint8_t t = prog[pc++];
+  if (t == 1) {
+    uint16_t dur = u16(prog + pc);
+    uint16_t mask = u16(prog + pc + 2);
+    pc += 4;
+    for (int p = 0; p < 16; p++) if (mask & (1 << p)) tgtAngle[p] = prog[pc++];
+    stepMask = mask;
+    startGroup(mask, dur);
+    inMove = true;
+  } else if (t == 2) {
+    waitUntil = now + u16(prog + pc);
+    pc += 2;
+    waiting = true;
+  } else if (t == 3) {
+    if (!markSent) { markSent = true; sendStatus(ST_LOOP_MARK, 0, 0); }   // the start-up part is done
+  } else {
+    running = false;
+    sendStatus(ST_PROG_BAD, 9, 0);
+  }
+}
+
+${fu ? String.raw`// ================= balance =================
+// Keeps the body level while the legs stand. Tilt comes from the MPU6050 (X forward, Z up).
+// The low side of the body is raised by extending the legs on that side, the high side is lowered.
+// The corrections are small, limited, and go through the motion engine, so they obey the speed limit.
+#define BAL_KP         ${flt(bl.kp)}   // servo degrees per degree of tilt
+#define BAL_KI         ${flt(bl.ki)}   // per degree-second (removes a steady lean)
+#define BAL_KD         ${flt(bl.kd)}   // per degree/second (damping)
+#define BAL_MAX        ${flt(bl.maxCorr)}   // never move a leg more than this away from the standing pose (degrees)
+#define BAL_AIR_DEG    8.0f    // a leg lifted more than this is in the air and not holding the body up
+#define BAL_DEADBAND   ${flt(bl.deadband)}   // tilt smaller than this is ignored
+#define BAL_ABORT_DEG  ${flt(bl.abortDeg)}   // tilt beyond this: the robot fell or is held, balance switches off
+#define BAL_INV_PITCH  ${bl.invertPitch ? '-1.0f' : '1.0f'}
+#define BAL_INV_ROLL   ${bl.invertRoll ? '-1.0f' : '1.0f'}
+struct BalLeg { int8_t pin; int8_t fr; int8_t rl; int8_t sign; };   // lift pin, front(+1)/rear(-1), right(+1)/left(-1), servo direction that pushes the leg DOWN
+const BalLeg BAL_LEGS[4] = { {${L.FL.pin}, 1, -1, ${L.FL.sign}}, {${L.FR.pin}, 1, 1, ${L.FR.sign}}, {${L.RL.pin}, -1, -1, ${L.RL.sign}}, {${L.RR.pin}, -1, 1, ${L.RR.sign}} };   // FL, FR, RL, RR
+
+float balKp = BAL_KP, balKi = BAL_KI, balKd = BAL_KD, balMax = BAL_MAX;
+bool balanceOn = false;
+float balBase[4], balIp = 0, balIr = 0, balSat = 0, balErr0 = 0;
+uint32_t balT0 = 0;
+float tiltZeroPitch = 0, tiltZeroRoll = 0;
+uint32_t lastBal = 0;
+
+float balPitch() { return (tiltPitch - tiltZeroPitch) * BAL_INV_PITCH; }   // + = nose down
+float balRoll() { return (tiltRoll - tiltZeroRoll) * BAL_INV_ROLL; }       // + = right side down
+
+void balanceOff(int reason) {   // 0 = user, 1 = tilt limit, 2 = another command, 3 = sensor lost, 4 = overload, 5 = stuck at the correction limit, 6 = tilt got worse (sensor direction wrong?)
+  if (!balanceOn) return;
+  balanceOn = false;
+  for (int i = 0; i < 4; i++) biasTgt[BAL_LEGS[i].pin] = 0;   // the correction slews back to zero
+  sendStatus(ST_BAL_OFF, reason, 0);
+}
+
+void balanceSet(bool on) {
+  if (!on) { balanceOff(0); return; }
+  if (fusionState != 1) { sendStatus(ST_BAL_REFUSED, 2, 0); return; }
+  for (int i = 0; i < 4; i++) if (!cmdKnown[BAL_LEGS[i].pin] || stalled[BAL_LEGS[i].pin]) { sendStatus(ST_BAL_REFUSED, 1, BAL_LEGS[i].pin); return; }   // stand first
+  for (int i = 0; i < 4; i++) { int p = BAL_LEGS[i].pin; balBase[i] = chase[p] ? tgtAngle[p] : cmdAngle[p]; }   // the standing pose
+  balIp = 0; balIr = 0; balSat = 0; lastBal = millis(); balT0 = lastBal;
+  balErr0 = fmaxf(fabsf(balPitch()), fabsf(balRoll()));
+  balanceOn = true;
+  sendStatus(ST_BAL_ON, 0, 0);
+}
+
+void balanceTick() {
+  if (!balanceOn) return;
+  uint32_t now = millis();
+  if (now - lastBal < 20) return;
+  float dt = (now - lastBal) / 1000.0f;
+  lastBal = now;
+  if (fusionState != 1) { balanceOff(3); return; }
+  float pitch = balPitch(), roll = balRoll();
+  if (fabsf(pitch) > BAL_ABORT_DEG || fabsf(roll) > BAL_ABORT_DEG) { balanceOff(1); return; }
+  float worst = fmaxf(fabsf(pitch), fabsf(roll));
+  if (now - balT0 < 3000 && worst > balErr0 + 4.0f) { balanceOff(6); return; }   // right after switch-on the tilt must not get worse
+  float ep = (fabsf(pitch) <= BAL_DEADBAND) ? 0.0f : pitch - copysignf(BAL_DEADBAND, pitch);
+  float er = (fabsf(roll) <= BAL_DEADBAND) ? 0.0f : roll - copysignf(BAL_DEADBAND, roll);
+  balIp = constrain(balIp + balKi * ep * dt, -balMax, balMax);
+  balIr = constrain(balIr + balKi * er * dt, -balMax, balMax);
+  float uP = constrain(balKp * ep + balIp + balKd * tiltPitchRate * BAL_INV_PITCH, -balMax, balMax);
+  float uR = constrain(balKp * er + balIr + balKd * tiltRollRate * BAL_INV_ROLL, -balMax, balMax);
+  balSat = (fabsf(uP) >= balMax * 0.95f || fabsf(uR) >= balMax * 0.95f) ? balSat + dt : 0.0f;
+  if (balSat > 3.0f && worst > 2.0f * BAL_DEADBAND + 1.0f) { balanceOff(5); return; }   // at the limit for 3 s and still not level
+  for (int i = 0; i < 4; i++) {
+    int p = BAL_LEGS[i].pin;
+    bool air = BAL_LEGS[i].sign * (cmdAngle[p] - balBase[i]) < -BAL_AIR_DEG;   // a lifted (walking) leg takes no part in levelling
+    float ext = constrain(BAL_LEGS[i].fr * uP + BAL_LEGS[i].rl * uR, -balMax, balMax);   // + = push this leg further down
+    biasTgt[p] = air ? 0.0f : BAL_LEGS[i].sign * ext;
+  }
+}
+
+void sendTilt() {   // "B r <pitch> <roll> <balancing>"
+  float p = balPitch(), r = balRoll();
+  Serial.printf("B r %.1f %.1f %d\n", p, r, balanceOn ? 1 : 0);${dual ? String.raw`
+  if (radioUp) {
+    uint8_t b[6];
+    int16_t p10 = (int16_t)lroundf(p * 10.0f), r10 = (int16_t)lroundf(r * 10.0f);
+    b[0] = MSG_TILT; b[1] = balanceOn ? 1 : 0;
+    memcpy(b + 2, &p10, 2);
+    memcpy(b + 4, &r10, 2);
+    esp_now_send(BCAST_MAC, b, sizeof(b));
+  }` : ''}
+}
+
+void balanceGains(float kp, float ki, float kd, float mx) {
+  balKp = constrain(kp, 0.0f, 10.0f); balKi = constrain(ki, 0.0f, 5.0f); balKd = constrain(kd, 0.0f, 2.0f); balMax = constrain(mx, 2.0f, 45.0f);
+  balIp = 0; balIr = 0;
+}
+
+` : ''}void ctrlCommand(uint8_t id, int arg) {
+  switch (id) {
+    case 1: telemetryOn = (arg != 0); break;
+    case 2: progLoop = (arg != 0); break;
+    case 4: clearOverload(); break;
+    case 5: speedScale = constrain(arg, 10, 100) / 100.0f; break;
+    case 8: dampOn = (arg != 0); break;
+${fu ? `    case 6: balanceSet(arg != 0); break;
+    case 7: tiltZeroPitch = tiltPitch; tiltZeroRoll = tiltRoll; sendStatus(ST_BAL_OFF, 9, 0); break;   // "set level": the current pose counts as level` : `    case 6: sendStatus(ST_BAL_REFUSED, 2, 0); break;`}
+  }
+}
+
+// a servo command from the user interrupts a running program
+void liveTarget(int pin, float angle) {
+  if (running) stopProgram(true);
+  setTarget(pin, angle);
+  LOG("Target pin %d -> %d\n", pin, (int)angle);
+}
+
+void applyPending() {   // commands that arrived by radio: a batch moves together, singles chase
+  uint16_t batch = pendingBatch;
+  pendingBatch = 0;
+  uint16_t groupMask = 0;
+  for (int p = 0; p < 16; p++) {
+    int a = pendingAngle[p];
+    if (a < 0) continue;
+    pendingAngle[p] = -1;
+    if (batch & (1 << p)) {
+      if (stalled[p]) continue;
+      tgtAngle[p] = constrain((float)a, (float)LIM_MIN[p], (float)LIM_MAX[p]);
+      groupMask |= 1 << p;
+    } else {
+      liveTarget(p, a);
+    }
+  }
+  if (groupMask) {
+    if (running) stopProgram(true);
+    startGroup(groupMask, 0);
+  }
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+int decodeHex(const char *h, uint8_t *out, int maxLen) {
+  int n = 0;
+  while (h[0] && h[1] && n < maxLen) {
+    int a = hexNibble(h[0]), b = hexNibble(h[1]);
+    if (a < 0 || b < 0) break;
+    out[n++] = (uint8_t)((a << 4) | b);
+    h += 2;
+  }
+  return n;
+}
+
+void handlePU(const String &s) {   // "PU <id> <flags> <total> <crc> <offset> <hex>"
+  int id = 0, flags = 0, total = 0, crc = 0, off = 0, used = 0;
+  if (sscanf(s.c_str() + 3, "%d %d %d %d %d %n", &id, &flags, &total, &crc, &off, &used) < 5 || used <= 0) {
+    Serial.println("ERR PU format");
+    return;
+  }
+  uint8_t buf[CHUNK_BYTES + 8];
+  int n = decodeHex(s.c_str() + 3 + used, buf, CHUNK_BYTES + 8);
+  if (n > 0 && progReceive((uint8_t)id, (uint8_t)flags, (uint16_t)total, (uint16_t)crc, (uint16_t)off, buf, n)) Serial.printf("OK PU %d\n", off);
+  else Serial.printf("ERR PU %d\n", off);
+}
+
+// Feedback calibration: drives the servo to its limits (keep the leg free, no load) and reports the readings.
+void fbCalibrate(int pin) {
+  if (pin < 0 || pin > 15 || FB_PIN[pin] < 0) { Serial.println("ERR fbcal: no feedback pin for this servo in the config"); return; }
+  Serial.printf("FBCAL running on pin %d, keep the leg free...\n", pin);
+  if (running) stopProgram(true);
+  writeServo(pin, (float)LIM_MIN[pin]);
+  delay(1500);
+  float rawLo = readRaw(pin);
+  writeServo(pin, (float)LIM_MAX[pin]);
+  delay(1500);
+  float rawHi = readRaw(pin);
+  Serial.printf("FBCAL %d %d %.0f %d %.0f\n", pin, LIM_MIN[pin], rawLo, LIM_MAX[pin], rawHi);
+  writeServo(pin, (LIM_MIN[pin] + LIM_MAX[pin]) / 2.0f);
+  tgtAngle[pin] = cmdAngle[pin];
+  chase[pin] = false;
 }`,
-radio,
-`void handleLine(String s) {
+dual ? String.raw`// ================= radio =================
+const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept commands from any sender
+#define RXQ 6
+struct RxPkt {
+  uint8_t len;
+  uint8_t d[CHUNK_BYTES + 12];
+};
+RxPkt rxq[RXQ];
+volatile uint8_t rxHead = 0, rxTail = 0;
+portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
+
+bool senderAllowed(const uint8_t *src) {
+  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) return memcmp(src, CONTROLLER_MAC, 6) == 0;
+  return true;
+}
+
+// Radio callback: only stores things. loop() does the work, so the I2C bus is never used from two tasks.
+void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len < 2 || len > (int)sizeof(rxq[0].d)) return;
+  if (info != nullptr && info->src_addr != nullptr && !senderAllowed(info->src_addr)) return;
+  if (len == 2) {                                   // one servo: pin, angle
+    if (data[0] > 15 || data[1] > 180) return;
+    pendingAngle[data[0]] = data[1];
+    return;
+  }
+  uint8_t t = data[0];
+  if (t == CMD_BATCH) {                             // several servos in one packet
+    uint16_t mask = data[1] | (data[2] << 8);
+    int n = 3;
+    for (int p = 0; p < 16; p++) {
+      if (!(mask & (1 << p))) continue;
+      if (n >= len) break;
+      if (data[n] <= 180) pendingAngle[p] = data[n];
+      n++;
+    }
+    pendingBatch |= mask;
+  } else if (t == CMD_PROG || t == CMD_STOP || t == CMD_CTRL || t == CMD_BAL) {
+    portENTER_CRITICAL(&rxMux);
+    uint8_t nx = (rxHead + 1) % RXQ;
+    if (nx != rxTail) {
+      memcpy(rxq[rxHead].d, data, len);
+      rxq[rxHead].len = len;
+      rxHead = nx;
+    }
+    portEXIT_CRITICAL(&rxMux);
+  }
+}
+
+void processRx() {
+  while (true) {
+    RxPkt p;
+    bool have;
+    portENTER_CRITICAL(&rxMux);
+    have = (rxTail != rxHead);
+    if (have) { p = rxq[rxTail]; rxTail = (rxTail + 1) % RXQ; }
+    portEXIT_CRITICAL(&rxMux);
+    if (!have) return;
+    if (p.d[0] == CMD_PROG && p.len > 9) progReceive(p.d[1], p.d[2], u16(p.d + 3), u16(p.d + 5), u16(p.d + 7), p.d + 9, p.len - 9);
+    else if (p.d[0] == CMD_STOP) stopProgram(true);
+    else if (p.d[0] == CMD_CTRL && p.len >= 3) ctrlCommand(p.d[1], p.d[2]);
+${fu ? '    else if (p.d[0] == CMD_BAL && p.len >= 9) balanceGains(u16(p.d + 1) / 100.0f, u16(p.d + 3) / 1000.0f, u16(p.d + 5) / 1000.0f, u16(p.d + 7) / 10.0f);' : ''}
+  }
+}
+` : '',
+String.raw`void handleLine(String s) {
   s.trim();
   if (s == "?" || s == "hello") {
     printHello();
@@ -1906,16 +2644,43 @@ radio,
     }
     return;
   }` : ''}
+  if (s.startsWith("PU ")) { handlePU(s); return; }
+  if (s == "PS") {
+    stopProgram(true);
+    Serial.println("OK PS");
+    return;
+  }
+  if (s.startsWith("c ")) {
+    int cid = 0, arg = 0;
+    if (sscanf(s.c_str() + 2, "%d %d", &cid, &arg) >= 1) ctrlCommand((uint8_t)cid, arg);
+    Serial.printf("OK c %d\n", cid);
+    return;
+  }
+${fu ? `  if (s.startsWith("bt ")) {   // "bt <kp> <ki> <kd> <max>": balance gains until reboot
+    float a, b, c2, d2;
+    if (sscanf(s.c_str() + 3, "%f %f %f %f", &a, &b, &c2, &d2) == 4) { balanceGains(a, b, c2, d2); Serial.println("OK bt"); }
+    return;
+  }
+` : ''}  if (s.startsWith("fbcal ")) { fbCalibrate(s.substring(6).toInt()); return; }
+  if (s.startsWith("fbset ")) {   // "fbset <pin> <raw0> <raw180>": use new calibration until reboot
+    int fp = 0; float r0 = 0, r1 = 0;
+    if (sscanf(s.c_str() + 6, "%d %f %f", &fp, &r0, &r1) == 3 && fp >= 0 && fp < 16) {
+      fbRaw0[fp] = r0; fbRaw180[fp] = r1;
+      Serial.printf("OK fbset %d\n", fp);
+    }
+    return;
+  }
   if (s.startsWith("s ")) {   // local USB command: "s 0 90"
     int sp = s.indexOf(' ', 2);
-    if (sp > 0) moveServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
+    if (sp > 0) liveTarget(s.substring(2, sp).toInt(), (float)s.substring(sp + 1).toInt());
   }
 }`,
-`void setup() {
+String.raw`void setup() {
+  Serial.setRxBufferSize(2048);   // program chunks are long lines
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\\nROBOT BOOTING");
-  for (int i = 0; i < 16; i++) pendingAngle[i] = -1;
+  Serial.println("\nROBOT BOOTING");
+  for (int i = 0; i < 16; i++) { biasTgt[i] = 0; biasCur[i] = 0; outAngle[i] = 90; pendingAngle[i] = -1; cmdKnown[i] = false; chase[i] = false; fbValid[i] = false; stalled[i] = false; errSince[i] = 0; tgtAngle[i] = 90; cmdAngle[i] = 90; lastTicks[i] = -1; }
 
   Wire.setPins(SDA_PIN, SCL_PIN);
   if (!pwm.begin()) Serial.println("ERR PCA9685 not detected");
@@ -1923,15 +2688,53 @@ radio,
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);
   delay(10);
-${fu ? '\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}${radioSetup}
+  if (FB_COUNT > 0) {
+    analogReadResolution(12);
+    for (int p = 0; p < 16; p++) if (FB_PIN[p] >= 0) { pinMode(FB_PIN[p], INPUT); analogSetPinAttenuation(FB_PIN[p], ADC_11db); }
+    readFeedback();
+    readFeedback();
+  }
+${fu ? '\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}${dual ? String.raw`
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("ERR WiFi STA mode failed");
+    return;
+  }
+  delay(100);
+  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  LOG("Set channel %d: %d (%s)\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
+
+  err = esp_now_init();
+  if (err != ESP_OK) {
+    Serial.printf("ERR ESP-NOW init: %d (%s)\n", err, esp_err_to_name(err));
+    return;
+  }
+  esp_now_register_recv_cb(onRecv);
+
+  esp_now_peer_info_t bp = {};   // broadcast peer: status, telemetry${fu ? ' and orientation' : ''} go to the controller
+  memcpy(bp.peer_addr, BCAST_MAC, 6);
+  bp.channel = ESPNOW_CHANNEL;
+  bp.ifidx = WIFI_IF_STA;
+  bp.encrypt = false;
+  err = esp_now_add_peer(&bp);
+  if (err != ESP_OK) Serial.printf("ERR add broadcast peer: %d (%s)\n", err, esp_err_to_name(err));
+  radioUp = (err == ESP_OK);
+  LOG("ESP-NOW ready\n");
+` : ''}
   printHello();
   Serial.println("ROBOT READY");
 }`,
-`${READ_SERIAL}
+String.raw`${READ_SERIAL}
 
 void loop() {
-  readSerial();
-  applyPending();${fu ? `
+  readSerial();${dual ? '\n  processRx();' : ''}
+  applyPending();
+  motionTick();
+  programTick();
+  if (telemetryOn && millis() - lastTelMs >= 100) {
+    lastTelMs = millis();
+    sendTelemetry();${fu ? '\n    sendTilt();' : ''}
+  }${fu ? `
+  balanceTick();
   streamMag('r');
   if (updateFusion() && ++fusionTick >= FUSION_EVERY) {
     fusionTick = 0;
@@ -1948,60 +2751,150 @@ function controllerFirmware() {
     '#include <esp_mac.h>', '#include <string.h>', ...(fu ? ['#include <Wire.h>', FUSION_INCLUDES] : [])].join('\n');
 
   const sections = [
-`/*
+String.raw`/*
  * Controller Firmware - ESP32 Arduino core 3.x - DEVICE MODE 1 (CONTROLLER)
  * Generated by PCA9685 Control Studio.
- * Plug this board into your PC. Web Serial commands are forwarded to the robot over ESP-NOW.
- * It also forwards the robot's sensor fusion data${fu ? ' and streams its own (MPU6050 + compass)' : ''} to the web page.
-${fu ? ' * Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"\n' : ''} * Serial (115200):  "s <pin> <angle>"  move a servo (sent to the robot),  "?"  identify${fu ? ',\n *                    "f 1" / "f 0"  start / stop this board\'s orientation stream,  "g"  recalibrate gyro,\n *                    "m 1|0"  raw compass stream,  "o x y z"  compass offsets' : ''}
+ * Plug this board into your PC. Web commands are forwarded to the robot over ESP-NOW:
+ * servo commands are batched into single packets, and whole sequences are uploaded in a few acknowledged chunks.
+ * It also forwards the robot's status, servo telemetry and orientation to the web page${fu ? ', and streams its own orientation (MPU6050 + compass)' : ''}.
+${fu ? ' * Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"\n' : ''} * Serial (115200):  s <pin> <angle>   PU ... (program chunk)   PS (stop)   c <id> <arg>   ?${fu ? '   f 1|0   g   m 1|0   o x y z' : ''}
  */`,
 inc,
-`${commonDefs(1, 'CONTROLLER', id, f.ctrlVerbose)}
+String.raw`${commonDefs(1, 'CONTROLLER', id, f.ctrlVerbose)}
 #define ESPNOW_CHANNEL ${e.channel}${fu ? `\n#define SDA_PIN ${e.csda}\n#define SCL_PIN ${e.cscl}` : ''}
 
 // Must match the ROBOT's MAC (shown when you connect to the robot).
 const uint8_t ROBOT_MAC[6] = {${macBytes(e.robotMac)}};   // ${e.robotMac}
 
-struct ServoMsg {
-  uint8_t pin;
-  uint8_t angle;
-};
 struct __attribute__((packed)) ImuMsg {   // robot -> controller telemetry
   uint8_t type;
   float w, x, y, z;
 };
-#define IMU_MSG_TYPE 0xA1
 
 String line;
 bool streaming = false;                 // this board's orientation stream (switched from the web page)
 ImuMsg robotImu;                        // newest quaternion received from the robot
-volatile bool robotImuNew = false;`,
+volatile bool robotImuNew = false;
+uint8_t telBuf[64];                     // newest servo telemetry from the robot
+volatile int telLen = 0;
+uint8_t tiltBuf[6];                     // newest tilt / balance state from the robot
+volatile bool tiltNew = false;
+uint8_t stq[8][3];                      // robot status events waiting to be printed
+volatile uint8_t stHead = 0, stTail = 0;
+portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
+volatile int sendState = 0;             // 0 = waiting, 1 = delivered, 2 = failed (set by the send callback)
+int16_t pendAngle[16];                  // servo commands collected for the next batch packet (-1 = none)
+uint32_t lastFlushMs = 0, lastFailMs = 0;`,
+PROTO_DEFS,
 fu ? fusionBlock(f.ctrlMag) : '',
-helloFn(fu, 'streaming ? 1 : 0'),
-`void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
-  if (status != ESP_NOW_SEND_SUCCESS) Serial.println("ESP-NOW delivery: FAIL");
-  else LOG("ESP-NOW delivery: SUCCESS\\n");
+helloFn(fu, 'streaming ? 1 : 0', '0', '0'),
+TELEM_PRINT,
+String.raw`void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  sendState = (status == ESP_NOW_SEND_SUCCESS) ? 1 : 2;
 }
 
-// Robot telemetry: only keep it here, loop() prints it for the web page.
+// Radio callback: only stores what the robot sent. loop() prints it for the web page.
 void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-  if (len != sizeof(ImuMsg) || data[0] != IMU_MSG_TYPE) return;
+  if (len < 4) return;
   if (info != nullptr && info->src_addr != nullptr && memcmp(info->src_addr, ROBOT_MAC, 6) != 0) return;
-  memcpy(&robotImu, data, sizeof(ImuMsg));
-  robotImuNew = true;
+  if (data[0] == MSG_IMU && len == sizeof(ImuMsg)) {
+    memcpy(&robotImu, data, sizeof(ImuMsg));
+    robotImuNew = true;
+  } else if (data[0] == MSG_STATUS && len == 4) {
+    portENTER_CRITICAL(&rxMux);
+    uint8_t nx = (stHead + 1) % 8;
+    if (nx != stTail) { stq[stHead][0] = data[1]; stq[stHead][1] = data[2]; stq[stHead][2] = data[3]; stHead = nx; }
+    portEXIT_CRITICAL(&rxMux);
+  } else if (data[0] == MSG_TILT && len == 6) {
+    portENTER_CRITICAL(&rxMux);
+    memcpy(tiltBuf, data, 6);
+    tiltNew = true;
+    portEXIT_CRITICAL(&rxMux);
+  } else if (data[0] == MSG_TELEM && len <= (int)sizeof(telBuf)) {
+    portENTER_CRITICAL(&rxMux);
+    memcpy(telBuf, data, len);
+    telLen = len;
+    portEXIT_CRITICAL(&rxMux);
+  }
 }
 
-void sendServo(int pin, int angle) {
-  if (pin < 0 || pin > 15) {
-    Serial.println("ERR invalid pin");
+// Sends one packet to the robot and waits for the radio acknowledgement, retrying a few times.
+bool sendReliable(const uint8_t *buf, size_t len, int tries) {
+  for (int t = 0; t < tries; t++) {
+    sendState = 0;
+    esp_err_t err = esp_now_send(ROBOT_MAC, buf, len);
+    if (err == ESP_OK) {
+      uint32_t t0 = millis();
+      while (sendState == 0 && millis() - t0 < 25) delay(1);
+      if (sendState == 1) return true;
+    } else {
+      delay(5);
+    }
+  }
+  if (lastFailMs == 0 || millis() - lastFailMs > 1000) {   // do not flood the log when the robot is off
+    lastFailMs = millis() + 1;
+    Serial.println("ESP-NOW delivery: FAIL");
+  }
+  return false;
+}
+
+// Servo commands that arrive close together leave as ONE packet, so the radio is never flooded
+// and the robot moves all of those servos together.
+void queueServo(int pin, int angle) {
+  if (pin < 0 || pin > 15) { Serial.println("ERR invalid pin"); return; }
+  pendAngle[pin] = constrain(angle, 0, 180);
+}
+
+void flushServos() {
+  if (millis() - lastFlushMs < 15) return;
+  uint8_t buf[3 + 16];
+  uint16_t mask = 0;
+  int n = 3;
+  for (int p = 0; p < 16; p++) if (pendAngle[p] >= 0) { mask |= 1 << p; buf[n++] = (uint8_t)pendAngle[p]; }
+  if (!mask) return;
+  lastFlushMs = millis();
+  buf[0] = CMD_BATCH; buf[1] = mask & 255; buf[2] = mask >> 8;
+  bool ok = sendReliable(buf, n, 3);
+  for (int p = 0; p < 16; p++) pendAngle[p] = -1;   // stale commands are dropped, never sent late
+  if (ok) LOG("Sent batch mask 0x%04X\n", mask);
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+int decodeHex(const char *h, uint8_t *out, int maxLen) {
+  int n = 0;
+  while (h[0] && h[1] && n < maxLen) {
+    int a = hexNibble(h[0]), b = hexNibble(h[1]);
+    if (a < 0 || b < 0) break;
+    out[n++] = (uint8_t)((a << 4) | b);
+    h += 2;
+  }
+  return n;
+}
+
+// "PU <id> <flags> <total> <crc> <offset> <hex>": one chunk of a sequence program, forwarded to the robot
+void forwardProgram(const String &s) {
+  int id = 0, flags = 0, total = 0, crc = 0, off = 0, used = 0;
+  if (sscanf(s.c_str() + 3, "%d %d %d %d %d %n", &id, &flags, &total, &crc, &off, &used) < 5 || used <= 0) {
+    Serial.println("ERR PU format");
     return;
   }
-  ServoMsg msg = { (uint8_t)pin, (uint8_t)constrain(angle, 0, 180) };
-  esp_err_t err = esp_now_send(ROBOT_MAC, (const uint8_t *)&msg, sizeof(msg));
-  if (err != ESP_OK) Serial.printf("ERR esp_now_send: %d (%s)\\n", err, esp_err_to_name(err));
-  else LOG("Sent pin %d angle %d\\n", pin, msg.angle);
+  uint8_t pkt[9 + CHUNK_BYTES];
+  int n = decodeHex(s.c_str() + 3 + used, pkt + 9, CHUNK_BYTES);
+  if (n <= 0) { Serial.printf("ERR PU %d\n", off); return; }
+  pkt[0] = CMD_PROG; pkt[1] = (uint8_t)id; pkt[2] = (uint8_t)flags;
+  pkt[3] = total & 255; pkt[4] = total >> 8;
+  pkt[5] = crc & 255;   pkt[6] = crc >> 8;
+  pkt[7] = off & 255;   pkt[8] = off >> 8;
+  if (sendReliable(pkt, 9 + n, 4)) Serial.printf("OK PU %d\n", off);
+  else Serial.printf("ERR PU %d\n", off);
 }`,
-`void handleLine(String s) {
+String.raw`void handleLine(String s) {
   s.trim();
   if (s == "?" || s == "hello") {
     printHello();
@@ -2035,16 +2928,46 @@ void sendServo(int pin, int angle) {
     Serial.println("ERR sensor fusion is not built into this firmware");
     return;
   }`}
+  if (s.startsWith("PU ")) { forwardProgram(s); return; }
+  if (s == "PS") {
+    uint8_t b[1] = { CMD_STOP };
+    Serial.println(sendReliable(b, 1, 4) ? "OK PS" : "ERR PS");
+    return;
+  }
+  if (s.startsWith("c ")) {   // "c <id> <arg>": telemetry on/off, loop, clear overload, speed
+    int cid = 0, arg = 0;
+    if (sscanf(s.c_str() + 2, "%d %d", &cid, &arg) >= 1) {
+      uint8_t b[3] = { CMD_CTRL, (uint8_t)cid, (uint8_t)arg };
+      sendReliable(b, 3, 3);
+    }
+    return;
+  }
+  if (s.startsWith("bt ")) {   // "bt <kp> <ki> <kd> <max>": balance gains, packed into one packet for the robot
+    float a, b, c2, d2;
+    if (sscanf(s.c_str() + 3, "%f %f %f %f", &a, &b, &c2, &d2) == 4) {
+      uint16_t v[4] = { (uint16_t)lroundf(constrain(a, 0.0f, 10.0f) * 100.0f), (uint16_t)lroundf(constrain(b, 0.0f, 5.0f) * 1000.0f), (uint16_t)lroundf(constrain(c2, 0.0f, 2.0f) * 1000.0f), (uint16_t)lroundf(constrain(d2, 2.0f, 45.0f) * 10.0f) };
+      uint8_t pk[9] = { CMD_BAL };
+      for (int i = 0; i < 4; i++) { pk[1 + 2 * i] = v[i] & 255; pk[2 + 2 * i] = v[i] >> 8; }
+      Serial.println(sendReliable(pk, 9, 3) ? "OK bt" : "ERR bt");
+    }
+    return;
+  }
+  if (s.startsWith("fbcal") || s.startsWith("fbset")) {
+    Serial.println("ERR connect to the robot directly for feedback calibration");
+    return;
+  }
   if (s.startsWith("s ")) {
     int sp = s.indexOf(' ', 2);
-    if (sp > 0) sendServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
+    if (sp > 0) queueServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
     else Serial.println("ERR format: s <pin> <angle>");
   }
 }`,
-`void setup() {
+String.raw`void setup() {
+  Serial.setRxBufferSize(2048);   // program chunks are long lines
   Serial.begin(115200);
   delay(500);
-  Serial.println("\\nCONTROLLER BOOTING");
+  Serial.println("\nCONTROLLER BOOTING");
+  for (int i = 0; i < 16; i++) pendAngle[i] = -1;
 ${fu ? '\n  Wire.setPins(SDA_PIN, SCL_PIN);\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}
   if (!WiFi.mode(WIFI_STA)) {
     Serial.println("ERR WiFi STA mode failed");
@@ -2052,11 +2975,11 @@ ${fu ? '\n  Wire.setPins(SDA_PIN, SCL_PIN);\n  initFusion();\n  Wire.setClock(I2
   }
   delay(100);
   esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
-  LOG("Set channel %d: %d (%s)\\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
+  LOG("Set channel %d: %d (%s)\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
 
   err = esp_now_init();
   if (err != ESP_OK) {
-    Serial.printf("ERR ESP-NOW init: %d (%s)\\n", err, esp_err_to_name(err));
+    Serial.printf("ERR ESP-NOW init: %d (%s)\n", err, esp_err_to_name(err));
     return;
   }
   esp_now_register_send_cb(onSent);
@@ -2068,20 +2991,50 @@ ${fu ? '\n  Wire.setPins(SDA_PIN, SCL_PIN);\n  initFusion();\n  Wire.setClock(I2
   peer.ifidx = WIFI_IF_STA;
   peer.encrypt = false;
   err = esp_now_add_peer(&peer);
-  if (err == ESP_ERR_ESPNOW_EXIST) LOG("ESP-NOW peer already exists\\n");
-  else if (err != ESP_OK) Serial.printf("ERR add peer: %d (%s)\\n", err, esp_err_to_name(err));
-  else LOG("ESP-NOW PEER OK\\n");
+  if (err == ESP_ERR_ESPNOW_EXIST) LOG("ESP-NOW peer already exists\n");
+  else if (err != ESP_OK) Serial.printf("ERR add peer: %d (%s)\n", err, esp_err_to_name(err));
+  else LOG("ESP-NOW PEER OK\n");
 
   printHello();
   Serial.println("CONTROLLER READY");
 }`,
-`${READ_SERIAL}
+String.raw`${READ_SERIAL}
 
 void loop() {
   readSerial();
-  if (robotImuNew) {   // forward the robot's orientation to the web page
+  flushServos();
+  if (robotImuNew) {   // forward what the robot sent to the web page
     robotImuNew = false;
-    Serial.printf("Q r %.4f %.4f %.4f %.4f\\n", robotImu.w, robotImu.x, robotImu.y, robotImu.z);
+    Serial.printf("Q r %.4f %.4f %.4f %.4f\n", robotImu.w, robotImu.x, robotImu.y, robotImu.z);
+  }
+  while (stTail != stHead) {
+    uint8_t ev[3];
+    portENTER_CRITICAL(&rxMux);
+    memcpy(ev, stq[stTail], 3);
+    stTail = (stTail + 1) % 8;
+    portEXIT_CRITICAL(&rxMux);
+    Serial.printf("RSTAT %d %d %d\n", ev[0], ev[1], ev[2]);
+  }
+  if (tiltNew) {
+    uint8_t tb6[6];
+    portENTER_CRITICAL(&rxMux);
+    memcpy(tb6, tiltBuf, 6);
+    tiltNew = false;
+    portEXIT_CRITICAL(&rxMux);
+    int16_t p10, r10;
+    memcpy(&p10, tb6 + 2, 2);
+    memcpy(&r10, tb6 + 4, 2);
+    Serial.printf("B r %.1f %.1f %d\n", p10 / 10.0f, r10 / 10.0f, tb6[1]);
+  }
+  if (telLen > 0) {
+    uint8_t tb[64];
+    int tl;
+    portENTER_CRITICAL(&rxMux);
+    tl = telLen;
+    memcpy(tb, telBuf, tl);
+    telLen = 0;
+    portEXIT_CRITICAL(&rxMux);
+    printTelemetry(tb, tl);
   }${fu ? `
   streamMag('c');
   if (streaming && updateFusion() && ++fusionTick >= FUSION_EVERY) {
@@ -2268,7 +3221,7 @@ function drawFusion(now) {
     fusionControlsState();
   }
 }
-function startFusionLoop() { requestAnimationFrame(drawFusion); requestAnimationFrame(drawCalibration); }
+function startFusionLoop() { requestAnimationFrame(drawFusion); requestAnimationFrame(drawCalibration); requestAnimationFrame(drawMonitor); requestAnimationFrame(drawBalance); }
 
 // ---------- calibration (gyro + compass) ----------
 // The firmware streams "M <r|c> x y z" (compass values before the offsets are subtracted).
@@ -2405,6 +3358,455 @@ function drawCalibration(now) {
       <div class="sbox ${st.cls}">${st.cls === 'ok' ? '✔' : '⚠'} ${esc(st.verdict)}</div>`
     : '<div class="xs dim">No samples yet.</div>') +
     (cal.saved ? `<div class="sbox info">ℹ Saved ${cal.saved.off.join(', ')} for the ${cal.saved.board === 'r' ? 'robot' : 'controller'} at ${cal.saved.at}. Re-flash that board (Prepare tab) to make the offsets permanent.</div>` : '');
+}
+
+// ---------- load & safety settings (Settings tab) ----------
+function normSafety(s) {
+  s = s || {};
+  const num = (v, d, lo, hi, name) => {
+    const x = (v === undefined || v === null || v === '') ? d : parseFloat(v);
+    if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`);
+    return x;
+  };
+  return { damping: s.damping === undefined ? true : !!s.damping, maxSpeed: num(s.maxSpeed, 120, 0, 1000, 'Max speed'), stallErr: num(s.stallErr, 12, 3, 60, 'Overload error'),
+           stallMs: num(s.stallMs, 400, 100, 3000, 'Overload time'), retries: Math.round(num(s.retries, 2, 0, 6, 'Retries')),
+           slowdown: num(s.slowdown, 0.6, 0.2, 0.95, 'Slow-down factor'), minScale: num(s.minScale, 0.3, 0.1, 1, 'Minimum speed') };
+}
+function normRobot(r) {
+  r = r || {};
+  const num = (v, d, lo, hi, name) => {
+    const x = (v === undefined || v === null || v === '') ? d : parseFloat(v);
+    if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`);
+    return x;
+  };
+  return { legCm: num(r.legCm, 6, 1, 40, 'Leg length'), massKg: num(r.massKg, 0.5, 0.05, 30, 'Robot mass'), servoKgCm: num(r.servoKgCm, 2, 0.2, 50, 'Servo torque') };
+}
+function setSafety(key, val) {
+  try { cfg.safety = normSafety({ ...cfg.safety, [key]: val }); logTerminal(`Safety setting ${key} = ${cfg.safety[key]}`); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setRobot(key, val) {
+  try { cfg.robot = normRobot({ ...cfg.robot, [key]: val }); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setFb(id, key, val) {
+  const s = S(id), prev = { fbPin: s.fbPin, fbRaw0: s.fbRaw0, fbRaw180: s.fbRaw180 };
+  s[key] = parseInt(val);
+  try {
+    if (s.fbPin >= 0) {
+      if (servoState.some(o => o.id !== id && o.fbPin === s.fbPin)) throw new Error(`ADC pin ${s.fbPin} is already used by another servo`);
+      if (!(s.fbRaw0 >= 0 && s.fbRaw0 <= 4095 && s.fbRaw180 >= 0 && s.fbRaw180 <= 4095 && Math.abs(s.fbRaw180 - s.fbRaw0) >= 100)) throw new Error('Feedback readings must be 0–4095 and at least 100 apart (use Auto-cal)');
+    }
+  } catch (e) { Object.assign(s, prev); logTerminal(e.message); }
+  refreshAll();
+}
+function renderSafety() {
+  const s = cfg.safety, r = cfg.robot;
+  ['maxSpeed', 'stallErr', 'stallMs', 'retries', 'slowdown', 'minScale'].forEach(k => { $('sf-' + k).value = s[k]; });
+  ['legCm', 'massKg', 'servoKgCm'].forEach(k => { $('rb-' + k).value = r[k]; });
+  $('sf-damping').checked = s.damping;
+  const perLeg = r.massKg / 3, torque = perLeg * r.legCm, pct = torque / r.servoKgCm * 100;
+  const maxMass = 3 * (0.5 * r.servoKgCm / r.legCm);
+  const cls = pct <= 50 ? 'ok' : 'warn';
+  const msg = pct <= 50 ? 'Comfortable: servos stay under half their rated torque.'
+    : pct <= 80 ? 'Borderline: expect strain, especially when a leg lifts. Keep the speed limit low and the poses gentle.'
+    : 'Above what these servos can safely hold. Lighten the robot, shorten the legs, or use stronger servos, otherwise they will stall and the gears can strip.';
+  $('load-calc').innerHTML = `<div class="kv"><span class="mute">Load per leg (3 feet down)</span><span>${perLeg.toFixed(2)} kg</span></div>
+    <div class="kv"><span class="mute">Torque on a lift servo (leg horizontal)</span><span>${torque.toFixed(2)} kg·cm</span></div>
+    <div class="kv"><span class="mute">Share of rated torque</span><span>${pct.toFixed(0)}%</span></div>
+    <div class="kv"><span class="mute">Heaviest robot for 50% load</span><span>${maxMass.toFixed(2)} kg</span></div>
+    <div class="sbox ${cls}">${cls === 'ok' ? '✔' : '⚠'} ${msg}</div>`;
+}
+
+// ---------- run the sequence on the robot (upload once, play locally) ----------
+const PROG_MAX = 2048, CHUNK = 200;
+let progCounter = 0, ackWait = null;
+
+function crc16(bytes) {
+  let c = 0xFFFF;
+  for (const b of bytes) { c ^= b << 8; for (let i = 0; i < 8; i++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c;
+}
+const toHex = (arr) => arr.map(b => b.toString(16).padStart(2, '0')).join('');
+
+// Steps: 1 = MOVE (ms u16, servo mask u16, one angle byte per servo)   2 = WAIT (ms u16)
+function compileProgram() {
+  const moveMs = parseInt($('move-ms').value), gap = parseInt($('sequence-delay').value);
+  const bytes = [], u16 = (v) => bytes.push(v & 255, (v >> 8) & 255);
+  const order = [...servoState].sort((a, b) => a.pin - b.pin);
+  const wait = (ms) => { while (ms > 0) { const w = Math.min(ms, 65535); bytes.push(2); u16(w); ms -= w; } };
+  let steps = 0;
+  sequence.forEach((b, i) => {
+    if (b.type === 'pose') {
+      const p = poseObj(b.poseId);
+      if (!p) return;
+      let mask = 0; const angles = [];
+      order.forEach(s => { if (s.enabled && p.angles[s.pin] !== undefined) { mask |= 1 << s.pin; angles.push(clamp(p.angles[s.pin], s.min, s.max)); } });
+      if (!mask) return;
+      bytes.push(1); u16(moveMs); u16(mask); bytes.push(...angles); steps++;
+      const next = sequence[i + 1];
+      if (next && next.type === 'pose' && gap > 0) { wait(gap); steps++; }
+    } else { wait(b.ms); steps++; }
+  });
+  return { bytes, steps };
+}
+
+function setRunStatus(t, cls) {
+  const col = cls === 'bad' ? 'var(--rose)' : cls === 'ok' ? '#34d399' : '';
+  [$('run-status'), $('walk-status')].forEach(e => { e.textContent = t; e.style.color = col; });
+}
+
+function sendWithAck(text, key, tries = 3, timeout = 1500) {
+  return new Promise(async (resolve) => {
+    for (let i = 0; i < tries; i++) {
+      const p = new Promise(r => { ackWait = { key, resolve: r }; setTimeout(() => r(false), timeout); });
+      await sendRaw(text);
+      const ok = await p;
+      ackWait = null;
+      if (ok) return resolve(true);
+    }
+    resolve(false);
+  });
+}
+
+async function uploadAndRun(bytes, steps, loop) {
+  if (!serialPort) { setRunStatus('Connect WebSerial to the robot or the controller first.', 'bad'); return false; }
+  if (!deviceInfo || !deviceInfo.prog) { setRunStatus('This board\'s firmware cannot run sequences. Copy the new code from Prepare and re-flash.', 'bad'); return false; }
+  if (!bytes.length) { setRunStatus('Nothing to send: no enabled servos in the poses.', 'bad'); return false; }
+  if (bytes.length > PROG_MAX) { setRunStatus(`The sequence is too long for the robot (${bytes.length} of ${PROG_MAX} bytes). Shorten it or split it.`, 'bad'); return false; }
+  const crc = crc16(bytes), id = (progCounter = (progCounter % 250) + 1);
+  const chunks = Math.ceil(bytes.length / CHUNK);
+  setRunStatus(`Uploading ${steps} steps (${bytes.length} bytes, ${chunks} packet${chunks > 1 ? 's' : ''})...`);
+  for (let off = 0; off < bytes.length; off += CHUNK) {
+    const part = bytes.slice(off, off + CHUNK), last = off + CHUNK >= bytes.length;
+    const flags = (last ? 1 : 0) | (loop ? 2 : 0);          // bit0: run as soon as everything arrived, bit1: loop
+    const ok = await sendWithAck(`PU ${id} ${flags} ${bytes.length} ${crc} ${off} ${toHex(part)}\n`, `PU ${off}`);
+    if (!ok) { setRunStatus(`Upload failed at byte ${off}. Check the radio link and try again.`, 'bad'); return false; }
+  }
+  setRunStatus(`Sent ${steps} steps. Waiting for the robot to confirm...`);
+  logTerminal(`Uploaded: ${steps} steps, ${bytes.length} bytes in ${chunks} packet(s).`);
+  return true;
+}
+async function runOnRobot() {
+  walk.active = false; walk.stopping = false;
+  if (!sequence.length) { setRunStatus('The sequence is empty.', 'bad'); return; }
+  const { bytes, steps } = compileProgram();
+  await uploadAndRun(bytes, steps, $('loop-toggle').checked);
+}
+function stopRobot() { sendRaw('PS\n'); setRunStatus('Stop sent.'); }
+function onLoopToggle(on) { if (serialPort && deviceInfo && deviceInfo.prog) sendRaw(`c 2 ${on ? 1 : 0}\n`); }
+function clearOverload() { sendRaw('c 4 0\n'); overload.text = ''; overload.sticky = false; }
+
+// ---------- robot events, telemetry and the servo monitor ----------
+const overload = { text: '', sticky: false, at: 0 };
+const PROG_BAD = { 1: 'empty or too long', 2: 'checksum or format error', 3: 'unexpected chunk', 4: 'size mismatch', 9: 'invalid step' };
+function handleRstat(line) {
+  const [, c, a, b] = line.split(/\s+/).map(Number);
+  const pinName = (p) => { const s = servoByPin(p); return s ? `pin ${p} (${s.label})` : `pin ${p}`; };
+  switch (c) {
+    case 1: setRunStatus(`Robot received the program (${b} steps).`, 'ok'); break;
+    case 2: setRunStatus(`Robot rejected the program: ${PROG_BAD[a] || 'error ' + a}. Try again.`, 'bad'); break;
+    case 3: setRunStatus(`Running on the robot${b ? ' (looping)' : ''}.`, 'ok'); break;
+    case 4: setRunStatus('Finished.', 'ok'); if (walk.stopping) { walk.active = false; walk.stopping = false; setRunStatus('Walking stopped: all legs are down.', 'ok'); } break;
+    case 5: setRunStatus('Stopped.'); break;
+    case 6: overload.text = `Overload on ${pinName(a)}: the servo was held, not forced.`; overload.at = performance.now(); logTerminal(overload.text); break;
+    case 7: overload.text = `Sequence stopped after repeated overload on ${pinName(a)}.`; overload.sticky = true; setRunStatus(overload.text, 'bad'); logTerminal(overload.text); break;
+    case 8: logTerminal(`Robot slowed all servos to ${a}% speed and is retrying.`); setRunStatus(`Overload: slowed to ${a}% and retrying...`, 'bad'); break;
+    case 9: setRunStatus('A packet was missed on the way to the robot. Run it again.', 'bad'); break;
+    case 10: overload.text = ''; overload.sticky = false; logTerminal('Overload cleared.'); break;
+    case 11: logTerminal('Balance ON.'); break;
+    case 12: if (a === 9) { logTerminal('Level reference set.'); break; }
+      logTerminal('Balance OFF' + ({ 0: '.', 1: ': tilt limit reached (the robot fell or is being held).', 2: ' because another command was sent.', 3: ': the tilt sensor was lost.', 4: ' because a servo was overloaded.', 5: ': the legs hit the correction limit for 3 s and the body is still not level (too steep for the limit, or the stance is wrong).', 6: ': the tilt got WORSE right after switching on. The sensor direction is probably wrong: tick Invert pitch or Invert roll in Settings → Balance.' }[a] || '.')); break;
+    case 14: if (walk.active) { logTerminal('Start pose reached.'); setRunStatus('Walking' + (cfg.gait.balance ? ' with balance...' : '...'), 'ok'); if (cfg.gait.balance) sendRaw('c 6 1\n'); } break;
+    case 13: logTerminal(a === 1 ? `Balance refused: stand up first (servo pin ${b} has not been commanded, or is overloaded).` : 'Balance refused: this robot has no working MPU6050.'); break;
+  }
+}
+
+const mon = { d: {}, stalled: 0, flags: 0, lastT: 0, n: 0, drawAt: 0 };
+const MON_WINDOW = 15000;
+function handleTelemLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 6) return;
+  const mask = parseInt(p[2]), stm = parseInt(p[3]), fl = parseInt(p[4]);
+  const vals = p[5].split(',');
+  let i = 0;
+  const now = performance.now();
+  for (let pin = 0; pin < 16; pin++) {
+    if (!(mask & (1 << pin))) continue;
+    const v = (vals[i++] || '').split(':').map(Number);
+    if (v.length < 3 || v.some(isNaN)) continue;
+    const arr = mon.d[pin] || (mon.d[pin] = []);
+    arr.push({ t: now, tg: v[0], cm: v[1], ac: v[2] < 0 ? null : v[2] });
+    while (arr.length && now - arr[0].t > MON_WINDOW) arr.shift();
+  }
+  mon.stalled = stm; mon.flags = fl; mon.lastT = now; mon.n++;
+}
+
+function drawMonitor(now) {
+  requestAnimationFrame(drawMonitor);
+  if ($('tab-gui').classList.contains('hidden') || now - mon.drawAt < 90) return;
+  mon.drawAt = now;
+  const live = now - mon.lastT < 3000;
+  const stalledNow = live ? mon.stalled : 0;
+  const txt = overload.text || (stalledNow ? 'Overload: a servo is being held.' : '');
+  $('overload-banner').classList.toggle('hidden', !txt);
+  if (txt) $('overload-text').textContent = '⚠ ' + txt;
+
+  const cv = $('mon-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  const pins = [...servoState].sort((a, b) => a.pin - b.pin);
+  const cols = Math.max(1, Math.floor(r.width / 240)), rows = Math.ceil(pins.length / cols), tw = r.width / cols, th = 104;
+  cv.style.height = rows * th + 'px';
+  const W = Math.round(r.width * dpr), H = Math.round(rows * th * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, rows * th);
+  pins.forEach((s, i) => {
+    const x0 = (i % cols) * tw + 4, y0 = Math.floor(i / cols) * th + 4, w = tw - 8, h = th - 8;
+    const bad = !!(stalledNow & (1 << s.pin));
+    ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(x0, y0, w, h);
+    ctx.strokeStyle = bad ? '#fb7185' : 'rgba(51,65,85,.9)'; ctx.lineWidth = bad ? 2 : 1; ctx.strokeRect(x0 + .5, y0 + .5, w - 1, h - 1);
+    const arr = mon.d[s.pin] || [];
+    const last = arr[arr.length - 1];
+    const hasFb = arr.some(q => q.ac !== null);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '600 11px system-ui,sans-serif';
+    ctx.fillText(`Pin ${s.pin} · ${s.label}`.slice(0, 30), x0 + 6, y0 + 13);
+    ctx.font = '11px ui-monospace,monospace'; ctx.textAlign = 'right';
+    if (last) {
+      ctx.fillStyle = bad ? '#fb7185' : (hasFb ? '#34d399' : '#94a3b8');
+      ctx.fillText(hasFb ? `tgt ${last.tg}  phys ${last.ac}  Δ${Math.abs(last.cm - last.ac)}` : `tgt ${last.tg}  cmd ${last.cm}`, x0 + w - 6, y0 + 13);
+    }
+    ctx.textAlign = 'left';
+    const px = x0 + 6, py = y0 + 22, pw = w - 12, ph = h - 28;
+    const lo = Math.max(0, s.min - 5), hi = Math.min(180, s.max + 5);
+    const X = (t) => px + pw + (t - now) / MON_WINDOW * pw, Y = (v) => py + ph - (v - lo) / (hi - lo || 1) * ph;
+    ctx.strokeStyle = 'rgba(100,116,139,.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, Y((s.min + s.max) / 2)); ctx.lineTo(px + pw, Y((s.min + s.max) / 2)); ctx.stroke();
+    if (!arr.length) { ctx.fillStyle = '#64748b'; ctx.font = '11px system-ui,sans-serif'; ctx.fillText(live ? 'not moved yet' : 'no data', px + 4, py + ph / 2 + 4); return; }
+    const line = (key, color, lw, dash) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+      let started = false;
+      arr.forEach(q => { const v = q[key]; if (v === null) return; const xx = X(q.t), yy = Y(v); if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy); });
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    line('tg', '#fbbf24', 1.5, [4, 3]);
+    line('cm', '#94a3b8', 1, []);
+    if (hasFb) line('ac', '#34d399', 2, []);
+  });
+}
+
+// feedback calibration result from the robot: "FBCAL <pin> <angleLo> <rawLo> <angleHi> <rawHi>"
+function handleFbCal(line) {
+  const p = line.split(/\s+/).slice(1).map(Number);
+  if (p.length !== 5 || p.some(isNaN)) return;
+  const [pin, aLo, rLo, aHi, rHi] = p, s = servoByPin(pin);
+  if (!s) return;
+  if (aHi - aLo < 30 || Math.abs(rHi - rLo) < 100) { logTerminal(`Feedback calibration for pin ${pin} failed: the readings barely changed (${rLo} → ${rHi}). Check the feedback wire and the limits (need at least 30° of travel).`); return; }
+  const slope = (rHi - rLo) / (aHi - aLo);
+  s.fbRaw0 = Math.round(rLo + (0 - aLo) * slope);
+  s.fbRaw180 = Math.round(rLo + (180 - aLo) * slope);
+  refreshAll();
+  sendRaw(`fbset ${pin} ${s.fbRaw0} ${s.fbRaw180}\n`);
+  logTerminal(`Feedback calibrated for pin ${pin}: ${s.fbRaw0} at 0°, ${s.fbRaw180} at 180°. Saved in Settings and applied now (re-flash to keep it after a reboot).`);
+}
+function fbAutoCal(id) {
+  const s = S(id);
+  if (!serialPort || !deviceInfo || deviceInfo.mode !== 0) { logTerminal('Connect directly to the robot (its own USB) to calibrate the feedback.'); return; }
+  if (s.fbPin < 0) { logTerminal('Choose a feedback pin for this servo first (then flash the code once).'); return; }
+  if (s.max - s.min < 30) { logTerminal('Widen this servo\'s min/max limits to at least 30° for the calibration.'); return; }
+  logTerminal(`Calibrating feedback on pin ${s.pin}: the servo will sweep between its limits. Keep the leg free!`);
+  sendRaw(`fbcal ${s.pin}\n`);
+}
+
+// ---------- balance (Settings + Control Studio) ----------
+function normBalance(b) {
+  b = b || {};
+  const num = (v, d, lo, hi, name) => { const x = (v === undefined || v === null || v === '') ? d : parseFloat(v); if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`); return x; };
+  const dl = { FL: { pin: 4, sign: 1 }, FR: { pin: 5, sign: -1 }, RL: { pin: 6, sign: -1 }, RR: { pin: 7, sign: 1 } };
+  const legs = {};
+  const seen = new Set();
+  for (const k of ['FL', 'FR', 'RL', 'RR']) {
+    const l = (b.legs && b.legs[k]) || dl[k];
+    const pin = parseInt(l.pin), sign = parseInt(l.sign);
+    if (!(pin >= 0 && pin <= 15)) throw new Error(`Balance ${k}: lift pin must be 0–15`);
+    if (sign !== 1 && sign !== -1) throw new Error(`Balance ${k}: direction must be + or −`);
+    if (seen.has(pin)) throw new Error(`Balance: pin ${pin} is used by two legs`);
+    seen.add(pin); legs[k] = { pin, sign };
+  }
+  return { kp: num(b.kp, 1.0, 0, 10, 'Kp'), ki: num(b.ki, 0.6, 0, 5, 'Ki'), kd: num(b.kd, 0.05, 0, 2, 'Kd'),
+           maxCorr: num(b.maxCorr, 20, 2, 45, 'Max correction'), deadband: num(b.deadband, 1, 0, 10, 'Deadband'), abortDeg: num(b.abortDeg, 30, 10, 60, 'Abort angle'),
+           invertPitch: !!b.invertPitch, invertRoll: !!b.invertRoll, legs };
+}
+function setBal(key, val) {
+  const next = JSON.parse(JSON.stringify(cfg.balance));
+  next[key] = (key === 'invertPitch' || key === 'invertRoll') ? !!val : val;
+  try { cfg.balance = normBalance(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setBalLeg(leg, key, val) {
+  const next = JSON.parse(JSON.stringify(cfg.balance));
+  next.legs[leg][key] = parseInt(val);
+  try { cfg.balance = normBalance(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function renderBalance() {
+  const b = cfg.balance;
+  ['kp', 'ki', 'kd', 'maxCorr', 'deadband', 'abortDeg'].forEach(k => { $('bal-' + k).value = b[k]; });
+  $('bal-invertPitch').checked = b.invertPitch; $('bal-invertRoll').checked = b.invertRoll;
+  ['FL', 'FR', 'RL', 'RR'].forEach(k => { $('bal-pin-' + k).value = b.legs[k].pin; $('bal-sign-' + k).value = b.legs[k].sign; });
+  ['kp', 'ki', 'kd', 'max'].forEach((k, i) => { const e = $('bl-' + k); if (e && document.activeElement !== e) e.value = [b.kp, b.ki, b.kd, b.maxCorr][i]; });
+}
+
+// live tilt + balance state from the robot ("B r pitch roll balancing")
+const tilt = { pitch: 0, roll: 0, on: false, t: 0 };
+function handleTiltLine(line) {
+  const p = line.split(/\s+/);
+  const a = parseFloat(p[2]), r = parseFloat(p[3]);
+  if (!isFinite(a) || !isFinite(r)) return;
+  tilt.pitch = a; tilt.roll = r; tilt.on = p[4] === '1'; tilt.t = performance.now();
+}
+function balanceReady() {
+  if (!serialPort) return 'Connect WebSerial to the robot (or the controller) first.';
+  if (!deviceInfo) return 'Waiting for the board to identify itself...';
+  if (deviceInfo.mode === 1 && !cfg.esp.dual) return 'Connect to the robot.';
+  if (deviceInfo.mode === 0 && !deviceInfo.bal) return 'The robot has no working MPU6050 (sensor fusion must be on in Settings, and the sensor found).';
+  return '';
+}
+function toggleBalance(on) {
+  const why = balanceReady();
+  if (on && why) { logTerminal(why); $('bal-switch').checked = false; return; }
+  sendRaw(`c 6 ${on ? 1 : 0}\n`);
+}
+function setLevel() { sendRaw('c 7 0\n'); logTerminal('Level reference set: the current pose of the robot now counts as level. Do this on flat ground, standing.'); }
+function applyGains() {
+  const v = ['kp', 'ki', 'kd', 'max'].map(k => parseFloat($('bl-' + k).value));
+  if (v.some(x => !isFinite(x))) { logTerminal('Enter numbers for the balance gains.'); return; }
+  sendRaw(`bt ${v.join(' ')}\n`);
+  logTerminal(`Balance gains sent: Kp ${v[0]}, Ki ${v[1]}, Kd ${v[2]}, max ${v[3]}° (until the robot reboots; save them in Settings to keep them).`);
+}
+function saveGains() {
+  const v = ['kp', 'ki', 'kd', 'max'].map(k => parseFloat($('bl-' + k).value));
+  try { cfg.balance = normBalance({ ...cfg.balance, kp: v[0], ki: v[1], kd: v[2], maxCorr: v[3] }); logTerminal('Balance gains saved in Settings. Re-flash the robot to make them permanent.'); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+
+function drawBalance(now) {
+  requestAnimationFrame(drawBalance);
+  if ($('tab-gui').classList.contains('hidden')) return;
+  const live = now - tilt.t < 1500, why = balanceReady();
+  const sw = $('bal-switch');
+  sw.disabled = !!why && !tilt.on;
+  if (document.activeElement !== sw) sw.checked = live && tilt.on;
+  $('bal-status').textContent = why ? why : !live ? 'Waiting for tilt data from the robot (telemetry).' : tilt.on ? 'Balancing: holding the body level.' : 'Balance is off. Stand the robot up first, then switch it on.';
+  const cv = $('bal-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, r.height);
+  const cx = r.width / 2, cy = r.height / 2, R = Math.min(r.width, r.height) * 0.42, lim = 20;
+  ctx.strokeStyle = 'rgba(100,116,139,.6)'; ctx.lineWidth = 1;
+  [R, R * 0.5].forEach(rad => { ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke(); });
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+  // bubble: it moves toward the HIGH side, like a spirit level (pitch + = nose down -> bubble to the back; roll + = right side down -> bubble to the left)
+  const bx = clamp(-tilt.roll / lim, -1, 1) * R, by = clamp(tilt.pitch / lim, -1, 1) * R;
+  const ok = Math.abs(tilt.pitch) < 2 && Math.abs(tilt.roll) < 2;
+  ctx.globalAlpha = live ? 1 : 0.35;
+  ctx.fillStyle = ok ? '#34d399' : '#fbbf24'; ctx.beginPath(); ctx.arc(cx + bx, cy + by, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('front', cx, cy - R - 4); ctx.fillText('rear', cx, cy + R + 12); ctx.textAlign = 'left';
+  $('bal-readout').innerHTML = `<div class="kv"><span class="mute">Pitch (+ nose down)</span><span>${live ? tilt.pitch.toFixed(1) : '–'}°</span></div><div class="kv"><span class="mute">Roll (+ right side down)</span><span>${live ? tilt.roll.toFixed(1) : '–'}°</span></div>`;
+}
+
+// ---------- walking: a four-phase crawl built from the stance, lifts, swings and a push ----------
+function normGait(g) {
+  g = g || {};
+  const num = (v, d, lo, hi, name) => { const x = (v === undefined || v === null || v === '') ? d : parseFloat(v); if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`); return x; };
+  const leg = (k, dr, df) => { const l = (g.legs && g.legs[k]) || {}; return { rear: Math.round(num(l.rear, dr, 0, 180, k + ' rear yaw')), front: Math.round(num(l.front, df, 0, 180, k + ' front yaw')) }; };
+  const st = (k, d) => Math.round(num(g.stance && g.stance[k], d, 0, 180, k + ' stance lift'));
+  return { liftDeg: num(g.liftDeg, 35, 10, 70, 'Lift height'), tLift: Math.round(num(g.tLift, 350, 50, 3000, 'Lift time')),
+           tSwing: Math.round(num(g.tSwing, 500, 50, 4000, 'Swing time')), tLower: Math.round(num(g.tLower, 350, 50, 3000, 'Lower time')),
+           tPush: Math.round(num(g.tPush, 900, 50, 5000, 'Push time')), reverse: !!g.reverse, balance: g.balance === undefined ? true : !!g.balance,
+           stance: { FL: st('FL', 160), FR: st('FR', 10), RL: st('RL', 10), RR: st('RR', 170) },
+           legs: { FL: leg('FL', 50, 125), FR: leg('FR', 130, 60), RL: leg('RL', 40, 110), RR: leg('RR', 120, 50) } };
+}
+function setGait(key, val) {
+  const next = JSON.parse(JSON.stringify(cfg.gait));
+  next[key] = (key === 'reverse' || key === 'balance') ? !!val : val;
+  try { cfg.gait = normGait(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setGaitLeg(group, leg, key, val) {
+  const next = JSON.parse(JSON.stringify(cfg.gait));
+  if (group === 'stance') next.stance[leg] = val; else next.legs[leg][key] = val;
+  try { cfg.gait = normGait(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function renderGait() {
+  const g = cfg.gait;
+  ['liftDeg', 'tLift', 'tSwing', 'tLower', 'tPush'].forEach(k => { $('gait-' + k).value = g[k]; });
+  $('gait-reverse').checked = g.reverse; $('gait-balance').checked = g.balance;
+  ['FL', 'FR', 'RL', 'RR'].forEach(k => { $('gait-rear-' + k).value = g.legs[k].rear; $('gait-front-' + k).value = g.legs[k].front; $('gait-stance-' + k).value = g.stance[k]; });
+  $('damp-switch').checked = cfg.safety.damping;
+}
+
+// Program steps: 1 MOVE, 2 WAIT, 3 LOOP MARKER (the program repeats from here, so the start-up pose is only done once)
+function compileGait(standOnly) {
+  const g = cfg.gait, bl = cfg.balance, bytes = [], u16 = (v) => bytes.push(v & 255, (v >> 8) & 255);
+  let steps = 0;
+  const move = (dur, pairs) => {
+    pairs = pairs.map(([p, a]) => { const s = servoByPin(p); return [p, clamp(Math.round(a), s ? s.min : 0, s ? s.max : 180)]; }).sort((a, b) => a[0] - b[0]);
+    let mask = 0; pairs.forEach(([p]) => { mask |= 1 << p; });
+    bytes.push(1); u16(dur); u16(mask); pairs.forEach(([, a]) => bytes.push(a)); steps++;
+  };
+  const yawPin = { FL: 0, FR: 1, RL: 2, RR: 3 }, order = ['FL', 'RR', 'FR', 'RL'];   // the four phases: FL, RR, FR, RL
+  const startPos = (L) => (g.reverse ? g.legs[L].front : g.legs[L].rear), swingTo = (L) => (g.reverse ? g.legs[L].rear : g.legs[L].front);
+  const stand = [];
+  order.forEach(L => { stand.push([yawPin[L], startPos(L)], [bl.legs[L].pin, g.stance[L]]); });
+  move(1000, stand);
+  if (standOnly) return { bytes, steps };
+  bytes.push(3); steps++;
+  order.forEach(L => {
+    const lp = bl.legs[L].pin, sg = bl.legs[L].sign;
+    move(g.tLift, [[lp, g.stance[L] - sg * g.liftDeg]]);    // lift this leg (the other three keep the body up)
+    move(g.tSwing, [[yawPin[L], swingTo(L)]]);              // swing it forward
+    move(g.tLower, [[lp, g.stance[L]]]);                    // put it down
+  });
+  move(g.tPush, order.map(L => [yawPin[L], startPos(L)]));  // all four feet on the ground: push the body forward
+  return { bytes, steps };
+}
+
+const walk = { active: false, stopping: false };
+async function standUp() {
+  walk.active = false; walk.stopping = false;
+  const c = compileGait(true);
+  await uploadAndRun(c.bytes, c.steps, false);
+}
+async function startWalking() {
+  walk.active = true; walk.stopping = false;
+  const c = compileGait(false);
+  const ok = await uploadAndRun(c.bytes, c.steps, true);
+  if (!ok) walk.active = false;
+  else setRunStatus('Walking: moving to the start pose first...');
+}
+function stopWalking() {
+  if (!walk.active) return;
+  walk.stopping = true;
+  sendRaw('c 2 0\n');                      // finish the current cycle, then stop with all legs down
+  setRunStatus('Stopping after this cycle: all four legs will be down.');
+}
+function emergencyStop() {
+  sendRaw('PS\n'); sendRaw('c 6 0\n');
+  walk.active = false; walk.stopping = false;
+  setRunStatus('Emergency stop: the robot holds its current pose (a leg that was lifted stays up).', 'bad');
+}
+function setDamping(on) {
+  try { cfg.safety = normSafety({ ...cfg.safety, damping: !!on }); } catch (e) { logTerminal(e.message); }
+  if (serialPort && deviceInfo && deviceInfo.prog) sendRaw(`c 8 ${on ? 1 : 0}\n`);
+  logTerminal(`Smooth motion (damping) ${on ? 'ON' : 'OFF'}${on ? '' : ': the servos move at full speed, with no easing'}.`);
+  refreshAll();
 }
 
 </script>

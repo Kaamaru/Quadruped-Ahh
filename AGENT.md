@@ -17,7 +17,13 @@ WebSerial requires a secure context, so use localhost (or https). Frontend-only 
 
 - `pca9685_servo_controller.html` — the whole app: markup, `<style>`, and one inline `<script>` (helpers, state, UI render/actions, WebSerial protocol handling, sensor fusion, calibration, pose/sequence storage, drag & drop, `robotFirmware()` / `controllerFirmware()` code generators, copy-to-clipboard).
 - `robot/robot.ino`, `controller/controller.ino`, `pca_webcontrol.ino` — generated Arduino firmware copies from the in-file generators; re-flash after changing the generator or the config.
-- `configs/*.json` — firmware config (`servomin`, `servomax`, `servos[{pin,label,min,max}]`, `esp{...}`, `fw{...}`).
+- `configs/*.json` — firmware config (`servomin`, `servomax`, `legLen` (cm), `servos[{pin,label,min,max}]`, `esp{...}`, `fw{...}` incl. `maxSpeed` °/s and `tiltLimit` °).
+
+## Features worth knowing
+
+- Pose playback: when a v2 robot is connected, **Play Sequence** uploads the whole sequence once (`SEQ` / `P` / `SEQ END`) and the robot plays it locally; the web only receives `STEP`/`POS` telemetry. No per-pose radio traffic.
+- Position graph ("Servo positions"): one strip per pin, dashed amber = target, cyan = `POS` telemetry from the robot. Without telemetry the follower is estimated at `maxSpeed`.
+- Load safety (baked into the robot firmware): all servos share one smoothstep ramp, speed-capped; a tilt above `tiltLimit` freezes the move and it resumes when the body is level.
 
 ## Notes
 
@@ -30,3 +36,4 @@ WebSerial requires a secure context, so use localhost (or https). Frontend-only 
 - I2C: PCA9685 0x40, MPU6050 0x68, compass 0x2C; ESP32 SDA/SCL 21/22.
 - Leg servo mapping: leg N -> yaw pin N-1, lift pin N+3; commanded 90 = limb horizontal; lift up/down mirrored between leg pairs (legs 1&4 vs 2&3).
 - Gait v1 is a static-stable crawl (one leg in swing, three planted); PID/tilt correction planned later via IMU.
+- The leg is 6 cm long (`legLen` in the config).

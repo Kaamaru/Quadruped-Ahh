@@ -1,0 +1,3351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCA9685 Servo Control Studio</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--mute:#94a3b8;--dim:#64748b;--brand:#38bdf8;--brand2:#0ea5e9;--green:#059669;--amber:#fbbf24;--rose:#fb7185;--ink:#0b1220}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:14px;min-height:100vh;display:flex;flex-direction:column}
+code,pre,.mono,input[type=number]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+.hidden{display:none!important}
+.mute{color:var(--mute)}.dim{color:var(--dim)}.brand{color:var(--brand)}.amber{color:var(--amber)}.rose{color:var(--rose)}.green{color:#34d399}
+.sm{font-size:12px}.xs{font-size:11px}
+header{position:sticky;top:0;z-index:50;background:rgba(30,41,59,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+.bar{max-width:1280px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#0284c7,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:20px}
+.logo h1{margin:0;font-size:17px}
+.logo p{margin:0;font-size:12px;color:var(--mute)}
+nav{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+nav button{background:none;border:0;border-radius:8px;padding:7px 14px;color:var(--mute);font-size:12px;font-weight:500}
+nav button:hover{color:#fff}
+nav button.active{background:var(--card);color:var(--brand);font-weight:600}
+main{flex:1;width:100%;max-width:1280px;margin:0 auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+section{display:flex;flex-direction:column;gap:20px}
+footer{border-top:1px solid var(--line);padding:14px;text-align:center;font-size:12px;color:var(--dim)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+.card h2,.card h3{margin:0}
+.card h2{font-size:15px}.card h3{font-size:14px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;border:1px solid var(--line);background:#334155;color:#fff;font-size:12px;padding:8px 12px;transition:background .15s}
+.btn:hover:not(:disabled){background:#475569}
+.btn-brand{background:#0284c7;border-color:#0ea5e9}.btn-brand:hover:not(:disabled){background:#0ea5e9}
+.btn-green{background:#059669;border-color:#10b981}.btn-green:hover:not(:disabled){background:#10b981}
+.btn-rose{background:#e11d48;border-color:#fb7185}.btn-rose:hover:not(:disabled){background:#f43f5e}
+.btn-amber{background:rgba(217,119,6,.2);border-color:rgba(245,158,11,.45);color:#fcd34d}.btn-amber:hover:not(:disabled){background:rgba(217,119,6,.35)}
+.btn-ghost{background:var(--bg);color:var(--text)}
+.btn-sm{padding:5px 9px;font-size:11px;border-radius:8px}
+.icon-btn{background:none;border:0;color:var(--dim);padding:2px 4px;font-size:13px}.icon-btn:hover:not(:disabled){color:var(--rose)}
+select,input[type=text],input[type=number]{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px}
+input:focus,select:focus{outline:none;border-color:var(--brand2)}
+/* servo grid */
+.grid-servos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.servo-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.servo-card.off{opacity:.55}
+.sc-head{display:flex;align-items:center;gap:6px}
+.pin-sel{color:var(--brand);font-weight:700;background:#0f172a;border-color:#475569;flex:none}
+.lbl{flex:1;min-width:0;background:transparent;border-color:transparent;font-weight:600}
+.lbl:hover{background:rgba(15,23,42,.5)}
+.switch{position:relative;display:inline-block;width:32px;height:16px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch span{position:absolute;inset:0;background:#475569;border-radius:99px;transition:.15s}
+.switch span:before{content:"";position:absolute;width:12px;height:12px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--brand2)}
+.switch input:checked+span:before{transform:translateX(16px)}
+.readout{display:flex;justify-content:space-between;align-items:flex-end;background:rgba(15,23,42,.6);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px 12px}
+.readout .big{font-size:26px;font-weight:700;color:var(--brand)}
+.cap{font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;display:block}
+.scale{display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
+.q4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.q3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.q4 button,.q3 button{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 0;font-size:11px;color:#cbd5e1}
+.q3 button{background:#1b2638;color:var(--mute);font-size:10px}
+.q4 button:hover:not(:disabled),.q3 button:hover:not(:disabled){background:#334155}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;width:100%;margin:6px 0}
+input[type=range]:focus{outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:8px;background:#334155;border-radius:4px}
+input[type=range]::-moz-range-track{height:8px;background:#334155;border-radius:4px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:20px;width:20px;margin-top:-6px;border-radius:50%;background:var(--brand2);box-shadow:0 0 10px rgba(14,165,233,.5)}
+input[type=range]::-moz-range-thumb{height:20px;width:20px;border:0;border-radius:50%;background:var(--brand2)}
+input[type=range]:disabled{opacity:.4}
+/* sequence */
+.seq-list{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;min-height:48px;align-items:center}
+.block{display:flex;align-items:center;gap:8px;border-radius:10px;padding:7px 10px;font-size:12px;cursor:grab;user-select:none;border:1px solid var(--line);background:#273449}
+.block:hover{background:#334155}
+.block.delay{background:rgba(120,53,15,.25);border-color:rgba(245,158,11,.35);color:#fde68a}
+.block.over{outline:2px solid var(--brand)}
+.block.dragging{opacity:.4}
+.block .grip{color:var(--dim)}
+.block b{color:var(--brand)}.block.delay b{color:var(--amber)}
+.block .x{background:none;border:0;color:var(--dim);padding:0 2px}.block .x:hover{color:var(--rose)}
+.term{background:rgba(15,23,42,.9);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px;font-size:12px;color:#34d399;height:112px;overflow-y:auto}
+.term div{margin-bottom:3px}
+.dot{width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block}
+/* modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.dialog{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.5);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;transition:max-width .15s}
+.dialog.wide{max-width:1080px}
+.d-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.d-head input{flex:1;min-width:0;font-size:14px;font-weight:600;background:transparent;border-color:transparent}
+.d-head input:hover,.d-head input:focus{background:var(--bg);border-color:var(--line)}
+.d-body{padding:14px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.d-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.d-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{background:var(--bg);border:0;padding:6px 12px;font-size:12px;color:var(--mute)}
+.seg button.on{background:#0284c7;color:#fff}
+.ed-grid{display:grid;gap:10px;grid-template-columns:1fr}
+.ed-grid.c4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.ed-grid.c4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.ed-grid.c4{grid-template-columns:1fr}}
+.ed-row{background:rgba(15,23,42,.6);border:1px solid rgba(51,65,85,.5);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.ed-row.off{opacity:.5}
+.ed-row.changed{border-color:rgba(56,189,248,.6)}
+.ed-head{display:flex;align-items:center;gap:6px;font-size:12px;min-width:0}
+.ed-head .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pin{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:var(--brand)}
+.ed-ctl{display:flex;align-items:center;gap:6px}
+.ed-ctl button{background:var(--bg);border:1px solid var(--line);border-radius:6px;width:26px;height:26px;padding:0;flex:none}
+.ed-ctl button:hover{background:#334155}
+.ed-num{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.ed-num input{width:68px}
+.chip{font-size:10px;background:rgba(14,165,233,.2);color:var(--brand);border-radius:99px;padding:1px 7px}
+.toggle-pill{display:inline-block;position:relative;width:28px;height:16px;border-radius:99px;background:#475569;margin-right:4px}
+.toggle-pill:after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:.15s}
+.toggle-pill.on{background:var(--brand2)}.toggle-pill.on:after{left:14px}
+/* settings & tables */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px;color:var(--mute);font-weight:600;background:var(--bg)}
+td{padding:6px 8px;border-bottom:1px solid rgba(51,65,85,.5)}
+td input[type=number]{width:76px}
+td input[type=text]{width:100%;min-width:120px}
+.scroll-x{overflow-x:auto}
+pre.code{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:12px;line-height:1.55;color:#cbd5e1;overflow:auto;height:380px;margin:0}
+.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:16px;padding:14px;color:#fde68a;font-size:12px;line-height:1.6}
+.note{font-size:12px;color:var(--mute);line-height:1.6}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
+.split{display:flex;gap:16px;flex-wrap:wrap}
+.split>*{flex:1 1 260px}
+.kv{display:flex;justify-content:space-between;gap:8px;background:var(--bg);padding:6px 8px;border-radius:6px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.stack{display:flex;flex-direction:column;gap:8px}
+.panel{background:rgba(30,41,59,.8);border:1px solid #475569;border-radius:12px;padding:14px}
+.hr{border-top:1px solid rgba(51,65,85,.6);margin:4px 0}
+.group{background:rgba(15,23,42,.45);border:1px solid var(--line);border-left-width:4px;border-radius:12px;padding:10px 12px}
+.group.saved{border-left-color:#10b981}.group.unsaved{border-left-color:#f59e0b}
+.group.active{box-shadow:0 0 0 1px rgba(56,189,248,.45)}
+.g-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.g-name{background:none;border:0;font-weight:600;font-size:13px;padding:3px 6px;border-radius:6px;color:var(--text)}
+.g-name:hover{background:rgba(51,65,85,.6)}
+.badge{font-size:11px;border-radius:99px;padding:2px 9px;font-weight:600}
+.badge.saved{background:rgba(16,185,129,.18);color:#34d399}
+.badge.unsaved{background:rgba(245,158,11,.18);color:#fbbf24}
+.g-menu{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.g-poses{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.block.playing{outline:2px solid #34d399;background:rgba(16,185,129,.2)}
+.seq-list.over-list{outline:2px dashed var(--brand);outline-offset:2px;border-radius:10px}
+.block input.rn,.g-head input.rn{width:140px;padding:3px 6px}
+.mini-btn{background:none;border:0;color:var(--dim);padding:0 3px;font-size:12px}.mini-btn:hover{color:var(--brand)}
+.seg button.on{background:#0284c7;color:#fff}
+.tabs-note{margin:0 0 10px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.studio{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.studio{grid-template-columns:1fr}}
+.bundle{background:rgba(15,23,42,.55);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:8px 10px}
+.bundle.unsaved{background:rgba(245,158,11,.07)}
+.bundle.saved{border-left-color:#10b981;background:rgba(16,185,129,.07)}
+.bundle.active{box-shadow:0 0 0 1px var(--brand2)}
+.b-head{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:26px}
+.b-name{font-weight:600;cursor:pointer;border-radius:6px;padding:1px 4px}
+.b-name:hover{background:rgba(148,163,184,.15)}
+.b-status{font-size:11px;font-weight:600}
+.b-status.ok{color:#34d399}.b-status.warn{color:var(--amber)}
+.arrow{background:none;border:0;color:var(--mute);padding:0 2px;font-size:13px}
+.b-menu{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.b-body{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.rn{font-size:12px;font-weight:600;width:140px;padding:3px 6px}
+.dropzone{border:2px dashed var(--line);border-radius:10px;min-height:36px;min-width:140px;flex:1 1 140px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;padding:6px;text-align:center}
+.dropzone.over{border-color:var(--brand);color:var(--brand)}
+.sbox{border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5}
+.sbox.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.4);color:#6ee7b7}
+.sbox.warn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#fde68a}
+.sbox.info{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);color:#bae6fd}
+.badge{font-size:12px;font-weight:600;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.45);color:var(--brand);border-radius:99px;padding:5px 12px}
+.pg{display:flex;flex-direction:column;gap:20px}
+.fusion{display:grid;grid-template-columns:minmax(300px,1.5fr) minmax(260px,1fr);gap:16px;align-items:start}
+@media(max-width:900px){.fusion{grid-template-columns:1fr}}
+#fusion-canvas,#cal-canvas,#mon-canvas{width:100%;height:320px;background:rgba(15,23,42,.7);border:1px solid var(--line);border-radius:12px;display:block}
+input[type=checkbox]{accent-color:#0ea5e9}
+#mon-canvas{height:220px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="logo">
+      <div class="logo-mark">⚙</div>
+      <div><h1>PCA9685 Control Studio</h1><p>16-Channel I2C PWM Servo Driver</p></div>
+    </div>
+    <div class="row">
+      <span id="cfg-chip" class="chip" title="Active servo config" style="font-size:11px;padding:4px 10px"></span>
+      <nav>
+        <button id="nav-gui" class="active" onclick="switchTab('gui')">Control Studio</button>
+        <button id="nav-calibrate" onclick="switchTab('calibrate')">Calibrate</button>
+        <button id="nav-prepare" onclick="switchTab('prepare')">Prepare</button>
+        <button id="nav-settings" onclick="switchTab('settings')">Settings</button>
+      </nav>
+      <span id="device-badge" class="badge hidden"></span>
+      <button id="connect-btn" class="btn btn-green" onclick="toggleWebSerial()"><span id="connect-text">Connect WebSerial</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ===== CONTROL STUDIO ===== -->
+<section id="tab-gui">
+  <div class="card">
+    <div class="row between" style="gap:14px">
+      <div>
+        <h2>Master Controller</h2>
+        <p class="sm mute" style="margin:2px 0 0">Control all servos at once or run a diagnostic sweep (servo limits are always respected).</p>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="setAllServos(90)">Reset All (90°)</button>
+        <button class="btn" onclick="setAllServos(0)">0°</button>
+        <button class="btn" onclick="setAllServos(180)">180°</button>
+        <button id="sweep-btn" class="btn btn-amber" onclick="toggleSweepTest()"><span id="sweep-text">Sweep Test</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="studio">
+    <!-- POSE STORAGE -->
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px">
+        <h3>Pose Storage</h3>
+        <div class="row" style="gap:6px">
+          <button class="btn btn-brand btn-sm" onclick="captureKeyframe()" title="Store the current servo positions as a new pose in the selected bundle">＋ Save Pose</button>
+          <button class="btn btn-ghost btn-sm" onclick="newBundle()">＋ New Bundle</button>
+          <button class="btn btn-ghost btn-sm" onclick="$('bundle-file').click()">Load Bundle…</button>
+          <input id="bundle-file" type="file" accept=".json,application/json" multiple class="hidden" onchange="importBundles(this)">
+        </div>
+      </div>
+      <p class="note" style="margin:0 0 10px">Drag pose blocks into the sequence like Scratch blocks. Click a bundle name to rename, save or delete it. Click the highlighted bundle to choose where new poses go.</p>
+      <div class="row" style="margin-bottom:10px"><span class="block delay" id="delay-palette" draggable="true" title="Drag into the sequence to add a delay">⏱ <b>Delay</b> block</span><span class="xs dim">drag into the sequence</span></div>
+      <div id="storage-list" class="stack"></div>
+    </div>
+
+    <!-- SEQUENCE -->
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px">
+        <h3>Sequence (<span id="pose-count">0</span> blocks)</h3>
+        <div class="row">
+          <button class="btn btn-amber btn-sm" onclick="addDelayBlock()" title="Add a pause at the end of the sequence">＋ Add Delay</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearSequence()">Clear</button>
+        </div>
+      </div>
+      <p class="note" style="margin:0 0 6px">Drag to reorder · click a block to edit it. Editing a pose here changes the stored pose too.</p>
+      <div id="keyframes-list" class="seq-list"></div>
+      <div id="run-status" class="xs dim" style="min-height:16px"></div>
+      <div class="row between" style="margin-top:10px;padding-top:12px;border-top:1px solid rgba(51,65,85,.6)">
+        <div class="row">
+          <span class="dim xs" title="How long the robot takes to reach each pose when the sequence runs on the robot (it may be stretched so no servo is overloaded)">Move time</span>
+          <select id="move-ms"><option value="0">fastest</option><option value="300">300ms</option><option value="500" selected>500ms</option><option value="800">800ms</option><option value="1200">1200ms</option><option value="2000">2000ms</option></select>
+          <span class="dim xs" title="Pause inserted between two poses that follow each other directly">Pose gap</span>
+          <select id="sequence-delay">
+            <option value="0">0ms</option><option value="300">300ms</option><option value="600" selected>600ms</option><option value="1000">1000ms</option><option value="2000">2000ms</option>
+          </select>
+          <label class="row xs" style="gap:6px;cursor:pointer" title="Repeat the sequence until you press Stop"><span class="switch"><input type="checkbox" id="loop-toggle" onchange="onLoopToggle(this.checked)"><span></span></span>Loop</label>
+        </div>
+        <span class="row" style="gap:6px">
+          <button id="run-robot-btn" class="btn btn-brand" onclick="runOnRobot()" title="Sends the whole sequence to the robot in a few packets and runs it there. The radio is quiet while it plays.">⬆ Run on robot</button>
+          <button class="btn btn-ghost" onclick="stopRobot()" title="Stops the sequence that is running on the robot">■ Stop robot</button>
+          <button id="play-seq-btn" class="btn btn-green" onclick="playSequence()" title="Plays from this page, sending the poses one after another" disabled>▶ Play (stream)</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="fusion-card">
+    <div class="row between" style="margin-bottom:10px">
+      <div><h3>Orientation (sensor fusion)</h3><span class="xs dim">MPU6050 + compass shown in 3D. Data can come from the robot, the controller, or both.</span></div>
+      <span class="seg"><button id="fs-r" onclick="setFusionView('r')">🤖 Robot</button><button id="fs-c" onclick="setFusionView('c')">🎮 Controller</button><button id="fs-both" class="on" onclick="setFusionView('both')">Both</button></span>
+    </div>
+    <div class="fusion">
+      <canvas id="fusion-canvas"></canvas>
+      <div class="stack">
+        <div id="fusion-readout" class="stack"></div>
+        <div class="hr"></div>
+        <label class="row sm" style="gap:8px;cursor:pointer" title="Starts / stops the orientation stream of the controller you are connected to"><span class="switch"><input id="fusion-stream" type="checkbox" onchange="toggleFusionStream(this.checked)"><span></span></span>Controller orientation stream</label>
+        <span id="fusion-hint" class="xs dim"></span>
+        <div class="row">
+          <button class="btn btn-ghost btn-sm" onclick="zeroView()" title="Treat the current pose as 'flat, facing forward'">Zero view</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearZero()">Reset zero</button>
+          <button id="fusion-calib" class="btn btn-ghost btn-sm" onclick="calibrateGyro()" title="Recalibrate the gyro of the connected board. Keep it still.">Calibrate gyro</button>
+        </div>
+        <div class="row xs mute" title="If the 3D model turns the wrong way around an axis, invert that axis">Invert rotation:
+          <label><input type="checkbox" onchange="setFusionInvert('x',this.checked)"> X</label>
+          <label><input type="checkbox" onchange="setFusionInvert('y',this.checked)"> Y</label>
+          <label><input type="checkbox" onchange="setFusionInvert('z',this.checked)"> Z</label></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="monitor-card">
+    <div class="row between" style="margin-bottom:8px">
+      <div><h3>Servo monitor</h3><span class="xs dim">Target vs commanded vs physical position for every pin, last 15 seconds. The physical line needs each servo's feedback wire (Settings).</span></div>
+      <span class="xs row" style="gap:12px"><span style="color:#fbbf24">╌ target</span><span style="color:#94a3b8">━ commanded</span><span style="color:#34d399">━ physical</span></span>
+    </div>
+    <div id="overload-banner" class="sbox warn hidden" style="margin-bottom:8px"><span id="overload-text"></span>
+      <button class="btn btn-sm btn-rose" style="margin-left:10px" onclick="clearOverload()" title="Lets the held servo move again">Clear overload</button></div>
+    <canvas id="mon-canvas"></canvas>
+  </div>
+
+  <div class="row between">
+    <h3 style="margin:0;font-size:14px">Servos <span class="dim" style="font-weight:400">(<span id="servo-count">8</span>/16 pins used)</span></h3>
+    <button id="add-servo-btn" class="btn btn-brand" onclick="addServo()">＋ Add Servo</button>
+  </div>
+  <div id="servo-grid" class="grid-servos"></div>
+
+  <div class="card" style="padding:14px">
+    <div class="row between" style="margin-bottom:10px">
+      <span class="row sm" style="font-weight:600;color:#cbd5e1"><span class="dot"></span> Live I2C / Serial Data Output</span>
+      <button class="icon-btn" style="color:var(--mute)" onclick="clearTerminal()">Clear Log</button>
+    </div>
+    <div id="terminal-out" class="term mono"><div class="dim">// PCA9685 Control Studio initialized.</div></div>
+  </div>
+</section>
+
+<!-- ===== CALIBRATE (gyro + compass) ===== -->
+<section id="tab-calibrate" class="hidden">
+  <div class="card">
+    <h2>Calibration</h2>
+    <p class="note" style="margin:4px 0 0">Calibrate the board you are connected to (robot or controller, over its own USB). <span id="cal-board" class="brand"></span></p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:4px">1. Gyro</h3>
+    <p class="note" style="margin:0 0 10px">Put the board on a table and do not touch it for 2 seconds. The gyro is also calibrated automatically at every boot, so this is only needed if you moved the board while it started.</p>
+    <div class="row"><button id="gyro-btn" class="btn btn-brand" onclick="gyroCalibrate()">Calibrate gyro now</button><span id="gyro-status" class="sm"></span></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:4px">2. Compass</h3>
+    <p class="note" style="margin:0 0 10px">Keep the board away from servos, magnets and metal. Press Start, then slowly tumble the board through every orientation (like drawing a figure eight and turning it upside down) until the plots below become round circles around the centre and the check turns green. Then press <b>Save</b>: the offsets go into Settings and are used right away. Re-flash from the Prepare tab to keep them after a reboot.</p>
+    <div class="row" style="margin-bottom:12px">
+      <button id="cal-start" class="btn btn-green" onclick="calStart()">▶ Start compass calibration</button>
+      <button id="cal-stop" class="btn btn-ghost" onclick="calStop()">■ Stop</button>
+      <button class="btn btn-ghost" onclick="calReset()">Clear samples</button>
+      <button id="cal-save" class="btn btn-brand" style="margin-left:auto" onclick="calSave()">💾 Save offsets to Settings</button>
+    </div>
+    <div class="fusion">
+      <canvas id="cal-canvas"></canvas>
+      <div id="cal-info" class="stack"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PREPARE (switch: Robot page / Controller page) ===== -->
+<section id="tab-prepare" class="hidden">
+  <div class="card">
+    <h3 style="margin-bottom:4px">Setup</h3>
+    <p class="note" style="margin:0 0 12px">Use one ESP32 on the robot, or two: the robot ESP32 plus a controller ESP32 that sends commands to it wirelessly (ESP-NOW). With two boards, use the switch to see each board's own wiring and code.</p>
+    <div class="row" style="gap:18px">
+      <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="esp-dual" type="checkbox" onchange="setEsp('dual',this.checked)"><span></span></span>Use two ESP32 boards (robot + controller)</label>
+      <span id="prep-switch" class="seg hidden">
+        <button id="prep-btn-robot" class="on" onclick="setPrepView('robot')">🤖 Robot ESP32</button>
+        <button id="prep-btn-ctrl" onclick="setPrepView('ctrl')">🎮 Controller ESP32</button>
+      </span>
+    </div>
+    <div id="esp-dual-fields" class="hidden" style="margin-top:14px">
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">WiFi channel (1–13)<input id="esp-channel" type="number" min="1" max="13" style="width:90px" onchange="setEsp('channel',this.value)"></label>
+        <label class="field">Robot ESP32 MAC<input id="esp-robot-mac" type="text" class="mono" style="width:170px" placeholder="AA:BB:CC:DD:EE:FF" onchange="setEsp('robotMac',this.value)"></label>
+        <label class="field">Controller ESP32 MAC (optional filter)<input id="esp-ctrl-mac" type="text" class="mono" style="width:170px" placeholder="AA:BB:CC:DD:EE:FF" onchange="setEsp('ctrlMac',this.value)"></label>
+      </div>
+      <p class="note" style="margin:10px 0 0">Both boards must use the same channel. To find a board's MAC: flash its code, press <b>Connect WebSerial</b>, and use the button in the popup. Leave the controller MAC at 00:00:… to let the robot accept any sender. These values go into both codes; re-flash after changing them.</p>
+      <div id="mac-warn" class="sbox warn hidden" style="margin-top:10px">⚠ The robot MAC is still 00:00:00:00:00:00. The controller cannot reach the robot until you enter it.</div>
+    </div>
+  </div>
+
+  <!-- ROBOT PAGE -->
+  <div id="prep-robot" class="pg">
+    <div class="warn"><strong style="color:#fcd34d;font-size:14px;display:block;margin-bottom:4px">⚠ External servo power required</strong>
+      Servos can draw 500mA to 2A each under load. <b>Do NOT power multiple servos from the 5V pin of an Arduino or ESP32.</b> Connect a dedicated 5V/6V supply (3A–5A minimum) to the PCA9685 <b>V+ screw terminal</b> and join all grounds together.</div>
+
+    <div class="card">
+      <h3 style="margin-bottom:14px">Robot wiring</h3>
+      <div class="split">
+        <div class="panel">
+          <div class="row between" style="margin-bottom:10px"><b class="sm">Microcontroller (robot)</b>
+            <span class="row" style="gap:4px"><button id="btn-board-esp32" class="btn btn-sm btn-brand" onclick="switchBoard('esp32')">ESP32</button><button id="btn-board-uno" class="btn btn-sm" onclick="switchBoard('uno')">Arduino Uno</button></span></div>
+          <div id="board-diagram" class="stack"></div>
+        </div>
+        <div class="panel" style="border-color:rgba(59,130,246,.4)">
+          <div class="row between" style="margin-bottom:10px"><b class="sm" style="color:#60a5fa">PCA9685 Module</b><span class="chip">Addr 0x40</span></div>
+          <div class="stack">
+            <div class="kv"><span class="amber">VCC (Logic)</span><span>3.3V / 5V MCU</span></div>
+            <div class="kv"><span class="mute">GND</span><span>Common Ground</span></div>
+            <div class="kv"><span style="color:#22d3ee">SDA</span><span id="sda-pin-text">GPIO 21 (ESP32)</span></div>
+            <div class="kv"><span class="green">SCL</span><span id="scl-pin-text">GPIO 22 (ESP32)</span></div>
+            <div class="kv" style="background:rgba(76,5,25,.6)"><span class="rose"><b>V+ Terminal</b></span><span class="rose"><b>Ext 5V–6V PSU (+)</b></span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">Servos (up to 16)</b>
+          <div class="stack">
+            <div class="kv"><span>Channels 0–15 (as assigned)</span><span class="dim xs">Yellow | Red | Brown</span></div>
+            <div class="xs mute" style="line-height:1.7"><span class="amber"><b>Signal (PWM):</b></span> Yellow / White<br><span class="rose"><b>V+ Power:</b></span> Red<br><b>Ground:</b> Brown / Black</div>
+          </div>
+        </div>
+      </div>
+      <div class="scroll-x" style="margin-top:16px"><table class="mono">
+        <thead><tr><th>PCA9685 Pin</th><th>Target</th><th>ESP32</th><th>Arduino Uno</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="amber"><b>VCC</b></td><td>MCU logic power</td><td>3.3V / 5V</td><td>5V</td><td class="mute">Powers the PCA9685 chip logic.</td></tr>
+          <tr><td><b>GND</b></td><td>MCU ground &amp; PSU (−)</td><td>GND</td><td>GND</td><td class="mute">Common ground for MCU and power supply.</td></tr>
+          <tr><td style="color:#22d3ee"><b>SDA</b></td><td>I2C data</td><td id="tbl-sda">GPIO 21</td><td>A4</td><td class="mute">Bi-directional I2C data.</td></tr>
+          <tr><td class="green"><b>SCL</b></td><td>I2C clock</td><td id="tbl-scl">GPIO 22</td><td>A5</td><td class="mute">I2C clock.</td></tr>
+          <tr><td class="rose"><b>V+ (terminal)</b></td><td>External PSU (+)</td><td>N/A</td><td>N/A</td><td class="rose">5V–6V high-current supply goes here.</td></tr>
+          <tr><td><b>GND (terminal)</b></td><td>External PSU (−)</td><td>N/A</td><td>N/A</td><td class="mute">Ground from the external supply.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:4px">Robot ESP32 config</h3>
+      <p class="note" style="margin:0 0 12px">Written into the robot code below and saved inside your config file (Settings). Re-flash after changing.</p>
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">I2C SDA pin<input id="esp-sda" type="number" min="0" max="39" style="width:90px" onchange="setEsp('sda',this.value)"></label>
+        <label class="field">I2C SCL pin<input id="esp-scl" type="number" min="0" max="39" style="width:90px" onchange="setEsp('scl',this.value)"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row between" style="margin-bottom:8px">
+        <div><h3 id="robot-fw-title">Robot ESP32 firmware</h3><span id="robot-cfg-id" class="xs dim mono"></span></div>
+        <button class="btn btn-brand" onclick="copyCode('robot')">Copy Code</button>
+      </div>
+      <p class="note" style="margin:0 0 6px"><b>Put each firmware in its own sketch folder</b> (for example <code>robot/robot.ino</code>). Arduino compiles every .ino file in a folder together, so two firmwares or an old sketch in the same folder cause “redefinition” errors.</p>
+      <p class="note" style="margin:0 0 10px">Needs the “Adafruit PWM Servo Driver Library”. Pulse range, servo limits, pins and link settings come from your config. The board reports its device mode (0) and config id when asked, so this page can detect it on connect.</p>
+      <pre id="code-display" class="code"></pre>
+    </div>
+  </div>
+
+  <!-- CONTROLLER PAGE -->
+  <div id="prep-ctrl" class="pg hidden">
+    <div class="card">
+      <h3 style="margin-bottom:14px">Controller wiring</h3>
+      <div class="split">
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">Controller ESP32</b>
+          <div class="stack">
+            <div class="kv"><span class="amber">USB</span><span>Plug into your PC</span></div>
+            <div class="kv"><span class="mute">PCA9685 / servos</span><span>Not needed here</span></div>
+            <div class="kv"><span class="green">Wireless</span><span>ESP-NOW → robot ESP32</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <b class="sm" style="display:block;margin-bottom:10px">How it works</b>
+          <div class="xs mute" style="line-height:1.7">1. Flash this code on the controller ESP32.<br>2. Flash the robot code on the robot ESP32 and power the robot.<br>3. Connect this page (Connect WebSerial) to the <b>controller</b>.<br>4. Servo commands go PC → controller (USB) → robot (ESP-NOW). The robot applies the servo limits.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="ctrl-i2c-card" class="card">
+      <h3 style="margin-bottom:4px">Controller ESP32 config</h3>
+      <p class="note" style="margin:0 0 12px">I2C pins of the controller's MPU6050 and compass (only used while the controller's sensor fusion is on in Settings).</p>
+      <div class="row" style="gap:18px;align-items:flex-end">
+        <label class="field">I2C SDA pin<input id="esp-csda" type="number" min="0" max="39" style="width:90px" onchange="setEsp('csda',this.value)"></label>
+        <label class="field">I2C SCL pin<input id="esp-cscl" type="number" min="0" max="39" style="width:90px" onchange="setEsp('cscl',this.value)"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row between" style="margin-bottom:8px">
+        <div><h3>Controller ESP32 firmware (device mode 1)</h3><span id="ctrl-cfg-id" class="xs dim mono"></span></div>
+        <button class="btn btn-brand" onclick="copyCode('ctrl')">Copy Code</button>
+      </div>
+      <p class="note" style="margin:0 0 6px"><b>Use a separate sketch folder</b> (for example <code>controller/controller.ino</code>), not the robot's folder.</p>
+      <p class="note" style="margin:0 0 10px">Uses the WiFi channel and robot MAC from Setup above. It reports device mode 1 and its config id when asked.</p>
+      <pre id="code-display-ctrl" class="code"></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SETTINGS ===== -->
+<section id="tab-settings" class="hidden">
+  <div class="card">
+    <h2>Load &amp; safety</h2>
+    <p class="note" style="margin:4px 0 14px">For a heavy robot. The robot moves all servos of a pose together on a smooth curve and never faster than the speed limit. With feedback wires it also detects an overloaded servo, holds it instead of forcing it, slows everything down and retries. These values are written into the robot code (Prepare tab).</p>
+    <div class="split">
+      <div class="panel stack">
+        <b class="sm">Load estimate</b>
+        <div class="row" style="gap:14px"><label class="field">Leg length (cm)<input id="rb-legCm" type="number" step="any" style="width:90px" onchange="setRobot('legCm',this.value)"></label><label class="field">Robot mass (kg)<input id="rb-massKg" type="number" step="any" style="width:90px" onchange="setRobot('massKg',this.value)"></label><label class="field">Servo torque (kg·cm)<input id="rb-servoKgCm" type="number" step="any" style="width:90px" onchange="setRobot('servoKgCm',this.value)"></label></div>
+        <div id="load-calc" class="stack"></div>
+      </div>
+      <div class="panel stack">
+        <b class="sm">Motion &amp; overload protection</b>
+        <div class="row" style="gap:14px"><label class="field">Max speed (°/s, 0 = no limit)<input id="sf-maxSpeed" type="number" step="any" style="width:90px" onchange="setSafety('maxSpeed',this.value)"></label></div>
+        <span class="xs dim">Overload detection needs the feedback wire:</span>
+        <div class="row" style="gap:14px"><label class="field">Error (°)<input id="sf-stallErr" type="number" step="any" style="width:90px" onchange="setSafety('stallErr',this.value)"></label><label class="field">For (ms)<input id="sf-stallMs" type="number" step="any" style="width:90px" onchange="setSafety('stallMs',this.value)"></label><label class="field">Retries<input id="sf-retries" type="number" step="any" style="width:90px" onchange="setSafety('retries',this.value)"></label></div>
+        <div class="row" style="gap:14px"><label class="field">Slow-down ×<input id="sf-slowdown" type="number" step="any" style="width:90px" onchange="setSafety('slowdown',this.value)"></label><label class="field">Min speed ×<input id="sf-minScale" type="number" step="any" style="width:90px" onchange="setSafety('minScale',this.value)"></label></div>
+        <span class="xs dim">Feedback: wire each servo's feedback line (through a voltage divider so it never exceeds 3.3 V) to an ESP32 ADC1 pin (GPIO 32, 33, 34, 35, 36 or 39), pick the pin in the table below, flash, then use Auto-cal.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Servo Config</h2>
+    <p class="note" style="margin:4px 0 14px">Each servo has an angle range it is not allowed to leave (sliders, buttons, poses and the firmware all respect it).
+      Save your setup (pins, names, limits, pulse range, ESP settings) as a JSON file, and choose that file later to apply it.</p>
+
+    <div class="split" style="margin-bottom:14px">
+      <div class="stack">
+        <b class="sm">Apply a config</b>
+        <div class="row"><select id="profile-select" style="min-width:200px"></select>
+          <button class="btn btn-brand" onclick="applyProfile()">Apply</button></div>
+        <div class="row"><button class="btn btn-ghost" onclick="document.getElementById('import-file').click()">Choose config file…</button>
+          <input id="import-file" type="file" accept=".json,application/json" class="hidden" onchange="importProfile(this)"></div>
+      </div>
+      <div class="stack">
+        <b class="sm">Save current settings</b>
+        <div class="row"><input id="profile-name" type="text" value="quadru_settings" style="width:200px"><span class="mute sm">.json</span>
+          <button class="btn btn-green" onclick="saveProfile()">Save</button></div>
+        <span id="profile-status" class="xs dim"></span>
+      </div>
+      <div class="stack">
+        <b class="sm">Pulse calibration (out of 4096)</b>
+        <div class="row">
+          <label class="field">SERVOMIN (0°)<input id="cfg-servomin" type="number" min="0" max="4095" onchange="setPulse('servomin',this.value)"></label>
+          <label class="field">SERVOMAX (180°)<input id="cfg-servomax" type="number" min="1" max="4095" onchange="setPulse('servomax',this.value)"></label>
+        </div>
+        <span class="xs dim">Used for the pulse readout and in the generated firmware (Prepare tab).</span>
+      </div>
+    </div>
+
+    <div class="scroll-x"><table>
+      <thead><tr><th>Pin</th><th>Name</th><th>Min angle</th><th>Max angle</th><th title="Optional: ADC pin wired to the servo feedback line">Feedback pin</th><th title="ADC reading at 0°">Raw @0°</th><th title="ADC reading at 180°">Raw @180°</th><th></th></tr></thead>
+      <tbody id="limits-body"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <h2>Firmware options</h2>
+    <p class="note" style="margin:4px 0 14px">These become fixed settings in the generated code (Prepare tab). Re-flash the board after changing them. They are saved in your config file too.</p>
+    <div class="split">
+      <div class="panel stack">
+        <b class="sm">🤖 Robot</b>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-robot-verbose" type="checkbox" onchange="setFw('robotVerbose',this.checked)"><span></span></span>Verbose debug output (Serial)</label>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-robot-fusion" type="checkbox" onchange="setFw('robotFusion',this.checked)"><span></span></span>Sensor fusion (MPU6050 + compass), always streaming</label>
+        <span class="xs dim">Compass offsets (calibration)</span>
+        <div class="row"><label class="field">X<input id="fw-rmag-0" type="number" step="any" style="width:90px" onchange="setMag('r',0,this.value)"></label><label class="field">Y<input id="fw-rmag-1" type="number" step="any" style="width:90px" onchange="setMag('r',1,this.value)"></label><label class="field">Z<input id="fw-rmag-2" type="number" step="any" style="width:90px" onchange="setMag('r',2,this.value)"></label></div>
+      </div>
+      <div class="panel stack">
+        <b class="sm">🎮 Controller</b>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-ctrl-verbose" type="checkbox" onchange="setFw('ctrlVerbose',this.checked)"><span></span></span>Verbose debug output (Serial)</label>
+        <label class="row sm" style="gap:8px;cursor:pointer"><span class="switch"><input id="fw-ctrl-fusion" type="checkbox" onchange="setFw('ctrlFusion',this.checked)"><span></span></span>Include sensor fusion (switch the stream on/off in the web page)</label>
+        <span class="xs dim">Compass offsets (calibration)</span>
+        <div class="row"><label class="field">X<input id="fw-cmag-0" type="number" step="any" style="width:90px" onchange="setMag('c',0,this.value)"></label><label class="field">Y<input id="fw-cmag-1" type="number" step="any" style="width:90px" onchange="setMag('c',1,this.value)"></label><label class="field">Z<input id="fw-cmag-2" type="number" step="any" style="width:90px" onchange="setMag('c',2,this.value)"></label></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ===== BLOCK EDITOR POPUP ===== -->
+<div id="editor-modal" class="modal" onclick="if(event.target===this)closeEditor()">
+  <div id="editor-dialog" class="dialog">
+    <div class="d-head"><span id="editor-icon"></span><input id="editor-title" type="text" disabled><button class="icon-btn" style="font-size:16px;color:var(--mute)" onclick="closeEditor()" title="Close">✕</button></div>
+    <div id="editor-body" class="d-body"></div>
+    <div id="editor-actions" class="d-foot"></div>
+  </div>
+</div>
+
+<!-- ===== DEVICE DETECTED POPUP ===== -->
+<div id="device-modal" class="modal" onclick="if(event.target===this)closeDevice()">
+  <div class="dialog">
+    <div class="d-head"><b id="device-title" style="flex:1"></b><button class="icon-btn" style="font-size:16px;color:var(--mute)" onclick="closeDevice()" title="Close">✕</button></div>
+    <div id="device-body" class="d-body"></div>
+    <div class="d-foot"><button class="btn btn-brand" style="margin-left:auto" onclick="closeDevice()">OK</button></div>
+  </div>
+</div>
+
+<footer>PCA9685 16-Channel Servo Web Controller</footer>
+
+<script>
+// ---------- helpers ----------
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ---------- state ----------
+const MAX_SERVOS = 16;
+const FB_PINS = [32, 33, 34, 35, 36, 39];   // ESP32 ADC1 pins (ADC2 cannot be used while WiFi is on)
+const DEFAULT_PROFILE = 'quadru_settings';
+const ZERO_MAC = '00:00:00:00:00:00';
+
+// Built-in default config. The page always starts with this (edit it here to change the startup defaults).
+// servomin/servomax = PCA9685 pulse ticks (out of 4096 at 50Hz) for 0° and 180°.
+const DEFAULT_CONFIG = {
+  name: DEFAULT_PROFILE,
+  version: 4,
+  servomin: 125,
+  servomax: 540,
+  servos: [
+    { pin: 0, label: "Base / Pan",       min: 0, max: 180 },
+    { pin: 1, label: "Shoulder / Pitch", min: 0, max: 180 },
+    { pin: 2, label: "Elbow / Lift",     min: 0, max: 180 },
+    { pin: 3, label: "Wrist / Roll",     min: 0, max: 180 },
+    { pin: 4, label: "Gripper / Claw",   min: 0, max: 180 },
+    { pin: 5, label: "Aux Servo 5",      min: 0, max: 180 },
+    { pin: 6, label: "Aux Servo 6",      min: 0, max: 180 },
+    { pin: 7, label: "Aux Servo 7",      min: 0, max: 180 }
+  ],
+  // ESP32 settings: dual = use 2 boards (robot + controller linked with ESP-NOW)
+  esp: { dual: false, channel: 1, robotMac: ZERO_MAC, ctrlMac: ZERO_MAC, sda: 21, scl: 22, csda: 21, cscl: 22 },
+  // Firmware options written into the generated code (verbose Serial debug, sensor fusion, compass offsets)
+  fw: { robotVerbose: false, ctrlVerbose: false, robotFusion: true, ctrlFusion: true,
+        robotMag: [-50, -100, -60], ctrlMag: [-50, -100, -60] },
+  // Load protection baked into the robot firmware; 'robot' is only used for the load estimate in Settings
+  safety: { maxSpeed: 120, stallErr: 12, stallMs: 400, retries: 2, slowdown: 0.6, minScale: 0.3 },
+  robot: { legCm: 6, massKg: 0.5, servoKgCm: 2 }
+};
+
+let cfg = { servomin: DEFAULT_CONFIG.servomin, servomax: DEFAULT_CONFIG.servomax, esp: { ...DEFAULT_CONFIG.esp },
+             fw: { ...DEFAULT_CONFIG.fw, robotMag: [...DEFAULT_CONFIG.fw.robotMag], ctrlMag: [...DEFAULT_CONFIG.fw.ctrlMag] },
+             safety: { ...DEFAULT_CONFIG.safety }, robot: { ...DEFAULT_CONFIG.robot } };
+let nextId = 0;
+let servoState = DEFAULT_CONFIG.servos.map(e => ({ id: nextId++, label: e.label, angle: 90, enabled: true, pin: e.pin, min: e.min, max: e.max, fbPin: -1, fbRaw0: 0, fbRaw180: 4095 }));
+const S = (id) => servoState.find(s => s.id === id);
+const servoByPin = (pin) => servoState.find(s => s.pin === pin);
+
+let profiles = {};            // servo configs: name -> config object
+let activeProfile = DEFAULT_PROFILE;
+
+// Pose storage: bundles of named poses (angles are keyed by PCA9685 pin so bundles are portable).
+// The sequence holds *references* to stored poses, so editing a pose updates every block that uses it.
+let library = [];             // [{id,name,poses:[{id,name,angles:{pin:deg}}],collapsed,saved}]
+let bid = 0, pid = 0, poseCounter = 0;
+let activeBundleId = null, menuOpenId = null, renaming = null;
+let sequence = [];            // {uid,type:'pose',poseId} | {uid,type:'delay',ms}
+let seqUid = 0;
+let isPlaying = false, stopRequested = false;
+let isSweeping = false, sweepInterval = null;
+let dragData = null;
+let editor = null, editorCols = 4;
+
+// serial / device detection
+let serialPort = null, serialWriter = null, serialReader = null, readDone = null, helloTimer = null, deviceInfo = null;
+
+// ---------- startup ----------
+window.onload = function() {
+  loadStoredProfiles();
+  profiles[DEFAULT_PROFILE] = validateConfig(DEFAULT_CONFIG);   // the built-in default always wins over a remembered copy
+  activeProfile = DEFAULT_PROFILE;
+  applyConfig(profiles[DEFAULT_PROFILE]);
+  newBundle('My Poses', true);
+  renderStorage();
+  updateSequenceUI();
+  initPalette();
+  startFusionLoop();
+  renderBoardDiagram('esp32');
+  logTerminal("Studio ready. No config file chosen: using the built-in default config (" + DEFAULT_PROFILE + ").");
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeEditor(); closeDevice(); } });
+
+function refreshAll() {
+  renderServoCards();
+  renderSettings();
+  renderPrepare();
+  renderFw();
+  renderSafety();
+  if (editor) renderEditor();
+}
+
+function switchTab(tab) {
+  ['gui', 'calibrate', 'prepare', 'settings'].forEach(t => {
+    $('tab-' + t).classList.toggle('hidden', t !== tab);
+    $('nav-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+// ---------- pulse maths ----------
+function angleToTicks(angle) {
+  return Math.round(cfg.servomin + (angle / 180) * (cfg.servomax - cfg.servomin));
+}
+function ticksToUs(t) { return Math.round(t * 1000000 / (50 * 4096)); }
+function angleToPulse(angle) { return ticksToUs(angleToTicks(angle)); }
+
+// ---------- add / remove / assign servos ----------
+function freePin() {
+  for (let p = 0; p < 16; p++) if (!servoState.some(s => s.pin === p)) return p;
+  return -1;
+}
+function addServo() {
+  const pin = freePin();
+  if (servoState.length >= MAX_SERVOS || pin < 0) return;
+  servoState.push({ id: nextId++, label: `Servo ${servoState.length + 1}`, angle: 90, enabled: true, pin, min: 0, max: 180, fbPin: -1, fbRaw0: 0, fbRaw180: 4095 });
+  refreshAll();
+  logTerminal(`Added servo on pin ${pin}.`);
+}
+function removeServo(id) {
+  if (servoState.length <= 1) return;
+  const s = S(id);
+  servoState = servoState.filter(x => x.id !== id);
+  refreshAll();
+  logTerminal(`Removed "${s.label}" (pin ${s.pin}).`);
+}
+function changePin(id, val) {
+  const pin = parseInt(val);
+  const owner = servoState.find(s => s.pin === pin && s.id !== id);
+  if (owner) logTerminal(`Pin ${pin} is already used by "${owner.label}".`);
+  else { S(id).pin = pin; logTerminal(`"${S(id).label}" now controls pin ${pin}.`); }
+  refreshAll();
+}
+
+// ---------- servo cards ----------
+function renderServoCards() {
+  const grid = $('servo-grid');
+  grid.innerHTML = '';
+  $('servo-count').textContent = servoState.length;
+  $('add-servo-btn').disabled = servoState.length >= MAX_SERVOS;
+
+  servoState.forEach(s => {
+    const id = s.id, d = s.enabled ? '' : 'disabled';
+    let opts = '';
+    for (let p = 0; p < 16; p++) {
+      const owner = servoState.find(x => x.pin === p && x.id !== id);
+      opts += `<option value="${p}" ${p === s.pin ? 'selected' : ''} ${owner ? 'disabled' : ''}>${p}${owner ? ' (used)' : ''}</option>`;
+    }
+    const card = document.createElement('div');
+    card.className = 'servo-card' + (s.enabled ? '' : ' off');
+    card.innerHTML = `
+      <div class="sc-head">
+        <select class="pin-sel mono" title="PCA9685 pin this box controls" onchange="changePin(${id}, this.value)">${opts}</select>
+        <input type="text" class="lbl" value="${esc(s.label)}" onchange="updateLabel(${id}, this.value)">
+        <label class="switch" title="Enable / disable"><input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleServoEnable(${id}, this.checked)"><span></span></label>
+        <button class="icon-btn" title="Remove servo" ${servoState.length <= 1 ? 'disabled' : ''} onclick="removeServo(${id})">🗑</button>
+      </div>
+      <div class="readout">
+        <div><span class="cap">Angle</span><span id="angle-display-${id}" class="big mono">${s.angle}°</span></div>
+        <div style="text-align:right"><span class="cap">PWM Pulse</span><span id="pulse-display-${id}" class="sm mono mute">${angleToPulse(s.angle)} µs</span></div>
+      </div>
+      <div>
+        <input type="range" id="slider-${id}" min="${s.min}" max="${s.max}" value="${s.angle}" ${d} oninput="setServoAngle(${id}, this.value)">
+        <div class="scale mono"><span>${s.min}°</span><span>limit</span><span>${s.max}°</span></div>
+      </div>
+      <div class="q4">
+        <button ${d} onclick="stepAngle(${id},-5)">-5°</button><button ${d} onclick="stepAngle(${id},-1)">-1°</button>
+        <button ${d} onclick="stepAngle(${id},1)">+1°</button><button ${d} onclick="stepAngle(${id},5)">+5°</button>
+      </div>
+      <div class="q3">
+        <button ${d} onclick="setServoAngle(${id},${s.min})">${s.min}° Min</button>
+        <button ${d} onclick="setServoAngle(${id},90)">90° Mid</button>
+        <button ${d} onclick="setServoAngle(${id},${s.max})">${s.max}° Max</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function setServoAngle(id, angle, transmit = true) {
+  const s = S(id);
+  if (!s) return;
+  angle = clamp(parseInt(angle), s.min, s.max);   // servo limit is enforced here
+  s.angle = angle;
+  const a = $('angle-display-' + id), p = $('pulse-display-' + id), sl = $('slider-' + id);
+  if (a) a.textContent = angle + '°';
+  if (p) p.textContent = angleToPulse(angle) + ' µs';
+  if (sl) sl.value = angle;
+  if (transmit && s.enabled) sendServoCommand(s.pin, angle);
+}
+function stepAngle(id, delta) { setServoAngle(id, S(id).angle + delta); }
+function toggleServoEnable(id, on) {
+  S(id).enabled = on;
+  refreshAll();
+  logTerminal(`Pin ${S(id).pin} (${S(id).label}) ${on ? 'ENABLED' : 'DISABLED'}`);
+}
+function updateLabel(id, v) { S(id).label = v || `Servo ${S(id).pin}`; refreshAll(); }
+function setAllServos(angle) {
+  servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, angle); });
+  logTerminal(`Master command: all servos to ${angle}° (limits applied)`);
+}
+
+function toggleSweepTest() {
+  const btn = $('sweep-btn'), txt = $('sweep-text');
+  if (isSweeping) {
+    clearInterval(sweepInterval); isSweeping = false;
+    btn.className = 'btn btn-amber'; txt.textContent = 'Sweep Test';
+    logTerminal('Sweep stopped.');
+    return;
+  }
+  isSweeping = true;
+  btn.className = 'btn btn-rose'; txt.textContent = 'Stop Sweep';
+  logTerminal('Sweep started (within each servo\'s limits).');
+  let t = 0, dir = 0.05;                      // 0..1 position between each servo's min and max
+  sweepInterval = setInterval(() => {
+    t += dir;
+    if (t >= 1) { t = 1; dir = -dir; } else if (t <= 0) { t = 0; dir = -dir; }
+    servoState.forEach(s => { if (s.enabled) setServoAngle(s.id, Math.round(s.min + t * (s.max - s.min))); });
+  }, 100);
+}
+
+// ---------- servo config: limits, profiles ----------
+function renderSettings() {
+  $('cfg-servomin').value = cfg.servomin;
+  $('cfg-servomax').value = cfg.servomax;
+  const names = Object.keys(profiles);
+  $('profile-select').innerHTML = names.length
+    ? names.map(n => `<option value="${esc(n)}" ${n === activeProfile ? 'selected' : ''}>${esc(n)}.json</option>`).join('')
+    : '<option value="">(nothing loaded)</option>';
+  if (document.activeElement !== $('profile-name')) $('profile-name').value = activeProfile;
+
+  $('limits-body').innerHTML = [...servoState].sort((a, b) => a.pin - b.pin).map(s => `
+    <tr>
+      <td class="mono brand"><b>${s.pin}</b></td>
+      <td><input type="text" value="${esc(s.label)}" onchange="updateLabel(${s.id}, this.value)"></td>
+      <td><input type="number" min="0" max="180" value="${s.min}" onchange="setLimit(${s.id},'min',this.value)"> °</td>
+      <td><input type="number" min="0" max="180" value="${s.max}" onchange="setLimit(${s.id},'max',this.value)"> °</td>
+      <td><select onchange="setFb(${s.id},'fbPin',this.value)"><option value="-1">none</option>${FB_PINS.map(p => `<option value="${p}" ${s.fbPin === p ? 'selected' : ''}>GPIO ${p}</option>`).join('')}</select></td>
+      <td><input type="number" min="0" max="4095" value="${s.fbRaw0}" ${s.fbPin < 0 ? 'disabled' : ''} onchange="setFb(${s.id},'fbRaw0',this.value)"></td>
+      <td><input type="number" min="0" max="4095" value="${s.fbRaw180}" ${s.fbPin < 0 ? 'disabled' : ''} onchange="setFb(${s.id},'fbRaw180',this.value)"></td>
+      <td style="white-space:nowrap"><button class="btn btn-sm btn-ghost" onclick="setLimitBoth(${s.id},0,180)">Reset 0–180</button>
+        <button class="btn btn-sm btn-ghost" ${s.fbPin < 0 ? 'disabled' : ''} onclick="fbAutoCal(${s.id})" title="Sweeps the servo between its limits (keep it free of load) and measures the feedback">Auto-cal</button></td>
+    </tr>`).join('');
+}
+
+function setLimit(id, which, v) {
+  const s = S(id);
+  let n = parseInt(v);
+  if (isNaN(n)) { renderSettings(); return; }
+  n = clamp(n, 0, 180);
+  const nmin = which === 'min' ? n : s.min, nmax = which === 'max' ? n : s.max;
+  if (nmin > nmax) { logTerminal(`Min angle can't be above max angle for pin ${s.pin}.`); renderSettings(); return; }
+  setLimitBoth(id, nmin, nmax);
+}
+function setLimitBoth(id, min, max) {
+  const s = S(id);
+  s.min = min; s.max = max;
+  if (s.angle < min || s.angle > max) setServoAngle(id, clamp(s.angle, min, max));
+  refreshAll();
+  logTerminal(`Pin ${s.pin} limit: ${min}° – ${max}°`);
+}
+function setPulse(which, v) {
+  const n = parseInt(v);
+  const nmin = which === 'servomin' ? n : cfg.servomin, nmax = which === 'servomax' ? n : cfg.servomax;
+  if (isNaN(n) || n < 0 || n > 4095 || nmin >= nmax) { logTerminal('Pulse values must be 0–4095 with SERVOMIN below SERVOMAX.'); renderSettings(); return; }
+  cfg[which] = n;
+  refreshAll();
+  logTerminal(`${which.toUpperCase()} = ${n}`);
+}
+
+const MAC_RE = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+
+function normEsp(e) {
+  e = e || {};
+  const num = (v, d) => (v === undefined || v === null || v === '' ? d : parseInt(v));
+  const sda = num(e.sda, 21), scl = num(e.scl, 22), csda = num(e.csda, 21), cscl = num(e.cscl, 22), ch = num(e.channel, 1);
+  const rm = String(e.robotMac || ZERO_MAC).trim().toUpperCase();
+  const cm = String(e.ctrlMac || ZERO_MAC).trim().toUpperCase();
+  const okPin = (v) => v >= 0 && v <= 39;
+  if (!(okPin(sda) && okPin(scl) && sda !== scl)) throw new Error('ESP: robot SDA and SCL must be two different pins (0–39)');
+  if (!(okPin(csda) && okPin(cscl) && csda !== cscl)) throw new Error('ESP: controller SDA and SCL must be two different pins (0–39)');
+  if (!(ch >= 1 && ch <= 13)) throw new Error('ESP: WiFi channel must be 1–13');
+  if (!MAC_RE.test(rm) || !MAC_RE.test(cm)) throw new Error('ESP: MAC addresses must look like AA:BB:CC:DD:EE:FF');
+  return { dual: !!e.dual, channel: ch, robotMac: rm, ctrlMac: cm, sda, scl, csda, cscl };
+}
+
+// Firmware options that get written into the generated code
+function normFw(f) {
+  f = f || {};
+  const bool = (v, d) => (v === undefined ? d : !!v);
+  const mag = (m, d) => {
+    if (m === undefined) return d.slice();
+    if (!Array.isArray(m) || m.length !== 3 || m.some(x => !isFinite(parseFloat(x)))) throw new Error('fw: compass offsets need 3 numbers');
+    return m.map(x => parseFloat(x));
+  };
+  return { robotVerbose: bool(f.robotVerbose, false), ctrlVerbose: bool(f.ctrlVerbose, false),
+           robotFusion: bool(f.robotFusion, true), ctrlFusion: bool(f.ctrlFusion, true),
+           robotMag: mag(f.robotMag, [-50, -100, -60]), ctrlMag: mag(f.ctrlMag, [-50, -100, -60]) };
+}
+
+function currentConfig(name) {
+  return { name, version: 4, servomin: cfg.servomin, servomax: cfg.servomax,
+    servos: [...servoState].sort((a, b) => a.pin - b.pin).map(s => ({ pin: s.pin, label: s.label, min: s.min, max: s.max, fbPin: s.fbPin, fbRaw0: s.fbRaw0, fbRaw180: s.fbRaw180 })),
+    esp: { ...cfg.esp }, fw: { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] },
+    safety: { ...cfg.safety }, robot: { ...cfg.robot } };
+}
+
+function validateConfig(c) {
+  if (!c || typeof c !== 'object' || !Array.isArray(c.servos) || c.servos.length < 1 || c.servos.length > 16) throw new Error('"servos" must list 1–16 entries');
+  const seen = new Set(), seenFb = new Set();
+  const servos = c.servos.map((e, i) => {
+    const pin = parseInt(e.pin), min = parseInt(e.min), max = parseInt(e.max);
+    if (!(pin >= 0 && pin <= 15)) throw new Error(`servo ${i + 1}: pin must be 0–15`);
+    if (seen.has(pin)) throw new Error(`pin ${pin} is used twice`);
+    seen.add(pin);
+    if (!(min >= 0 && max <= 180 && min <= max)) throw new Error(`pin ${pin}: need 0 ≤ min ≤ max ≤ 180`);
+    const fbPin = (e.fbPin === undefined || e.fbPin === null || e.fbPin === '') ? -1 : parseInt(e.fbPin);
+    if (fbPin !== -1 && !FB_PINS.includes(fbPin)) throw new Error(`pin ${pin}: feedback pin must be one of ${FB_PINS.join(', ')}`);
+    if (fbPin >= 0) { if (seenFb.has(fbPin)) throw new Error(`feedback pin ${fbPin} is used twice`); seenFb.add(fbPin); }
+    const fbRaw0 = e.fbRaw0 === undefined ? 0 : parseInt(e.fbRaw0), fbRaw180 = e.fbRaw180 === undefined ? 4095 : parseInt(e.fbRaw180);
+    if (fbPin >= 0 && !(fbRaw0 >= 0 && fbRaw0 <= 4095 && fbRaw180 >= 0 && fbRaw180 <= 4095 && Math.abs(fbRaw180 - fbRaw0) >= 100)) throw new Error(`pin ${pin}: feedback readings need 0–4095, at least 100 apart`);
+    return { pin, label: String(e.label || `Servo ${pin}`), min, max, fbPin, fbRaw0, fbRaw180 };
+  });
+  const smin = c.servomin === undefined ? cfg.servomin : parseInt(c.servomin);
+  const smax = c.servomax === undefined ? cfg.servomax : parseInt(c.servomax);
+  if (!(smin >= 0 && smax <= 4095 && smin < smax)) throw new Error('servomin/servomax invalid');
+  return { name: String(c.name || ''), version: 4, servomin: smin, servomax: smax, servos, esp: normEsp(c.esp), fw: normFw(c.fw), safety: normSafety(c.safety), robot: normRobot(c.robot) };
+}
+
+function applyConfig(c) {
+  const old = servoState, used = new Set();
+  servoState = c.servos.map(e => {
+    const prev = old.find(o => o.pin === e.pin && !used.has(o.id));
+    if (prev) used.add(prev.id);
+    return { id: prev ? prev.id : nextId++, label: e.label, angle: clamp(prev ? prev.angle : 90, e.min, e.max),
+             enabled: prev ? prev.enabled : true, pin: e.pin, min: e.min, max: e.max,
+             fbPin: e.fbPin, fbRaw0: e.fbRaw0, fbRaw180: e.fbRaw180 };
+  });
+  cfg.servomin = c.servomin; cfg.servomax = c.servomax; cfg.esp = { ...c.esp };
+  cfg.fw = { ...c.fw, robotMag: [...c.fw.robotMag], ctrlMag: [...c.fw.ctrlMag] };
+  cfg.safety = { ...c.safety }; cfg.robot = { ...c.robot };
+  refreshAll();
+  renderBoardDiagram(currentBoard);
+  updateSequenceUI();
+}
+
+function setEsp(key, val) {
+  const next = { ...cfg.esp };
+  if (key === 'dual') next.dual = !!val;
+  else if (key === 'robotMac' || key === 'ctrlMac') next[key] = String(val).trim().toUpperCase() || ZERO_MAC;
+  else next[key] = val;
+  try { cfg.esp = normEsp(next); logTerminal(`ESP setting changed: ${key} = ${cfg.esp[key]}`); }
+  catch (e) { logTerminal(e.message); }
+  refreshAll();
+  renderBoardDiagram(currentBoard);
+}
+
+// A short id of everything that gets baked into a firmware. The firmware reports it, so the web can tell
+// whether the board runs the config that is loaded here (or the default one).
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+function bakedSpec(role, c) {
+  const lo = Array(16).fill(0), hi = Array(16).fill(180);
+  c.servos.forEach(s => { lo[s.pin] = s.min; hi[s.pin] = s.max; });
+  const e = c.esp, f = c.fw;
+  const link = e.dual ? { dual: true, channel: e.channel, robotMac: e.robotMac, ctrlMac: e.ctrlMac } : { dual: false };
+  if (role === 0) return { g: 4, role: 0, smin: c.servomin, smax: c.servomax, lo, hi, sda: e.sda, scl: e.scl, link,
+    v: f.robotVerbose, fu: f.robotFusion, mag: f.robotFusion ? f.robotMag : null, sf: c.safety,
+    fb: c.servos.filter(s => s.fbPin >= 0).map(s => [s.pin, s.fbPin, s.fbRaw0, s.fbRaw180]) };
+  return { g: 4, role: 1, link, v: f.ctrlVerbose, fu: f.ctrlFusion, mag: f.ctrlFusion ? f.ctrlMag : null,
+    i2c: f.ctrlFusion ? [e.csda, e.cscl] : null };
+}
+
+function cfgId(role, c) { return fnv1a(JSON.stringify(bakedSpec(role, c))); }
+
+function loadStoredProfiles() {
+  try {
+    const raw = localStorage.getItem('quadru_profiles');
+    if (raw) Object.entries(JSON.parse(raw)).forEach(([n, c]) => { try { profiles[n] = validateConfig(c); } catch (e) {} });
+  } catch (e) {}
+}
+function storeProfiles() { try { localStorage.setItem('quadru_profiles', JSON.stringify(profiles)); } catch (e) {} }
+function setStatus(t) { $('profile-status').textContent = t; }
+
+function applyProfile() {
+  const name = $('profile-select').value;
+  if (!name || !profiles[name]) return;
+  activeProfile = name;
+  applyConfig(profiles[name]);
+  logTerminal(`Applied config "${name}".`);
+  setStatus(`Applied ${name}.json`);
+}
+
+function importProfile(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const c = validateConfig(JSON.parse(r.result));
+      const name = f.name.replace(/\.json$/i, '');
+      profiles[name] = c; activeProfile = name; storeProfiles();
+      applyConfig(c);
+      logTerminal(`Imported ${f.name}.`); setStatus(`Imported ${f.name}`);
+    } catch (e) { logTerminal(`Import failed: ${e.message}`); setStatus(`Import failed: ${e.message}`); }
+    input.value = '';
+  };
+  r.readAsText(f);
+}
+
+async function saveTextFile(filename, text) {
+  try {
+    if (!window.showSaveFilePicker) throw new Error('no picker');
+    const h = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
+    const w = await h.createWritable(); await w.write(text); await w.close();
+    return 'picker';
+  } catch (e) {
+    if (e && e.name === 'AbortError') return null;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    return 'download';
+  }
+}
+
+async function saveProfile() {
+  const name = $('profile-name').value.trim().replace(/\.json$/i, '').replace(/[^\w\-]+/g, '_') || DEFAULT_PROFILE;
+  const c = currentConfig(name);
+  profiles[name] = validateConfig(c); activeProfile = name; storeProfiles();
+  const how = await saveTextFile(name + '.json', JSON.stringify(c, null, 2));
+  if (how) {
+    const msg = `Saved ${name}.json${how === 'download' ? ' to your downloads folder' : ''}.`;
+    logTerminal(msg); setStatus(msg);
+  }
+  renderSettings();
+}
+
+// ---------- pose storage (bundles) ----------
+function uniqueBundleName(n) {
+  let name = n, i = 2;
+  while (library.some(b => b.name === name)) name = `${n} (${i++})`;
+  return name;
+}
+function newBundle(name, silent) {
+  const b = { id: ++bid, name: uniqueBundleName(name || 'Bundle'), poses: [], collapsed: false, saved: false };
+  library.push(b);
+  activeBundleId = b.id;
+  if (!silent) { renderStorage(); logTerminal(`Created bundle "${b.name}".`); }
+  return b;
+}
+const getBundle = (id) => library.find(b => b.id === id);
+function findPose(id) {
+  for (const b of library) { const p = b.poses.find(x => x.id === id); if (p) return { pose: p, bundle: b }; }
+  return null;
+}
+const poseObj = (id) => { const f = findPose(id); return f && f.pose; };
+function markDirty(poseId) {
+  const f = findPose(poseId);
+  if (f && f.bundle.saved) { f.bundle.saved = false; renderStorage(); }
+}
+
+function captureKeyframe() {
+  const b = getBundle(activeBundleId) || library[0] || newBundle('My Poses', true);
+  const angles = {};
+  servoState.forEach(s => { angles[s.pin] = s.angle; });
+  const p = { id: ++pid, name: `Pose #${++poseCounter}`, angles };
+  b.poses.push(p);
+  b.saved = false; b.collapsed = false; activeBundleId = b.id;
+  renderStorage();
+  logTerminal(`Saved "${p.name}" into bundle "${b.name}".`);
+}
+
+function selectBundle(id) { activeBundleId = id; renderStorage(); }
+function toggleBundle(id) { const b = getBundle(id); b.collapsed = !b.collapsed; renderStorage(); }
+function toggleMenu(id) { menuOpenId = menuOpenId === id ? null : id; activeBundleId = id; renderStorage(); }
+function renameBundle(id) { renaming = { kind: 'bundle', id }; menuOpenId = null; renderStorage(); }
+function renamePose(id) { renaming = { kind: 'pose', id }; renderStorage(); }
+function renameKey(e) {
+  if (e.key === 'Enter') e.target.blur();
+  else if (e.key === 'Escape') { renaming = null; renderStorage(); }
+}
+function commitRename(v) {
+  if (!renaming) return;
+  const r = renaming; renaming = null; v = v.trim();
+  if (v) {
+    if (r.kind === 'bundle') { const b = getBundle(r.id); if (b && v !== b.name) { b.name = v; b.saved = false; } }
+    else { const f = findPose(r.id); if (f && v !== f.pose.name) { f.pose.name = v; f.bundle.saved = false; } }
+  }
+  renderStorage(); updateSequenceUI();
+}
+
+function deleteBundle(id) {
+  const b = getBundle(id);
+  if (!b) return;
+  if (!confirm(`Delete bundle "${b.name}" and its ${b.poses.length} pose(s)?\n(A bundle file you saved earlier is not touched.)`)) return;
+  const ids = new Set(b.poses.map(p => p.id));
+  sequence = sequence.filter(x => x.type !== 'pose' || !ids.has(x.poseId));
+  if (editor && editor.type === 'pose' && ids.has(editor.target.id)) closeEditor();
+  library = library.filter(x => x.id !== id);
+  menuOpenId = null;
+  if (activeBundleId === id) activeBundleId = library.length ? library[0].id : null;
+  renderStorage(); updateSequenceUI();
+  logTerminal(`Deleted bundle "${b.name}".`);
+}
+function deletePose(poseId) {
+  const f = findPose(poseId);
+  if (!f) return;
+  const uses = sequence.filter(x => x.type === 'pose' && x.poseId === poseId).length;
+  if (uses && !confirm(`"${f.pose.name}" is used ${uses} time(s) in the sequence. Delete it and remove those blocks?`)) return;
+  if (editor && editor.target === f.pose) closeEditor();
+  f.bundle.poses = f.bundle.poses.filter(p => p.id !== poseId);
+  f.bundle.saved = false;
+  sequence = sequence.filter(x => x.type !== 'pose' || x.poseId !== poseId);
+  renderStorage(); updateSequenceUI();
+}
+
+function bundleToJson(b) {
+  return { type: 'pose_bundle', version: 1, name: b.name, poses: b.poses.map(p => ({ name: p.name, angles: p.angles })) };
+}
+async function saveBundle(id) {
+  const b = getBundle(id);
+  menuOpenId = null;
+  if (!b) return;
+  const file = (b.name.replace(/[^\w\- ]+/g, '_').trim() || 'bundle') + '.json';
+  const how = await saveTextFile(file, JSON.stringify(bundleToJson(b), null, 2));
+  if (how) { b.saved = true; logTerminal(`Saved bundle "${b.name}" as ${file}${how === 'download' ? ' (downloads folder)' : ''}.`); }
+  renderStorage();
+}
+function validateBundle(j, fallbackName) {
+  if (!j || !Array.isArray(j.poses)) throw new Error('not a pose bundle (missing "poses")');
+  const poses = j.poses.map((p, i) => {
+    if (!p || typeof p.angles !== 'object') throw new Error(`pose ${i + 1} has no angles`);
+    const angles = {};
+    Object.entries(p.angles).forEach(([k, v]) => {
+      const pin = parseInt(k), a = parseInt(v);
+      if (!(pin >= 0 && pin <= 15) || !(a >= 0 && a <= 180)) throw new Error(`pose ${i + 1}: bad entry ${k}: ${v}`);
+      angles[pin] = a;
+    });
+    return { name: String(p.name || `Pose #${i + 1}`), angles };
+  });
+  return { name: String(j.name || fallbackName || 'Bundle'), poses };
+}
+function importBundles(input) {
+  [...input.files].forEach(f => {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const v = validateBundle(JSON.parse(r.result), f.name.replace(/\.json$/i, ''));
+        const b = { id: ++bid, name: uniqueBundleName(v.name), collapsed: false, saved: true,
+          poses: v.poses.map(p => {
+            const m = /^Pose #(\d+)$/.exec(p.name); if (m) poseCounter = Math.max(poseCounter, parseInt(m[1]));
+            return { id: ++pid, name: p.name, angles: p.angles };
+          }) };
+        library.push(b); activeBundleId = b.id;
+        renderStorage();
+        logTerminal(`Loaded bundle "${b.name}" (${b.poses.length} poses) from ${f.name}.`);
+      } catch (e) { logTerminal(`Couldn't load ${f.name}: ${e.message}`); }
+    };
+    r.readAsText(f);
+  });
+  input.value = '';
+}
+
+function renderStorage() {
+  const root = $('storage-list');
+  root.innerHTML = '';
+  if (!library.length) root.innerHTML = '<span class="xs dim" style="font-style:italic">No bundles. Use “＋ New Bundle” or “Load Bundle…”.</span>';
+  library.forEach(b => {
+    const box = document.createElement('div');
+    box.className = 'bundle ' + (b.saved ? 'saved' : 'unsaved') + (b.id === activeBundleId ? ' active' : '');
+    const rb = renaming && renaming.kind === 'bundle' && renaming.id === b.id;
+    const nameHtml = rb
+      ? `<input id="rename-input" class="rn" type="text" value="${esc(b.name)}" onclick="event.stopPropagation()" onkeydown="renameKey(event)" onblur="commitRename(this.value)">`
+      : `<span class="b-name" title="Click for rename / save / delete" onclick="event.stopPropagation();toggleMenu(${b.id})">${esc(b.name)} <span class="dim">▾</span></span>`;
+    box.innerHTML = `
+      <div class="b-head" onclick="selectBundle(${b.id})" title="${b.id === activeBundleId ? 'New poses are saved into this bundle' : 'Click to make this the bundle new poses go into'}">
+        <button class="arrow" title="Expand / collapse" onclick="event.stopPropagation();toggleBundle(${b.id})">${b.collapsed ? '▸' : '▾'}</button>
+        ${nameHtml}
+        <span class="b-status ${b.saved ? 'ok' : 'warn'}">● ${b.saved ? 'Saved' : 'Unsaved'}</span>
+        <span class="xs dim" style="margin-left:auto">${b.poses.length} pose${b.poses.length === 1 ? '' : 's'}</span>
+      </div>`;
+    if (menuOpenId === b.id) {
+      box.insertAdjacentHTML('beforeend', `<div class="b-menu">
+        <button class="btn btn-sm btn-ghost" onclick="renameBundle(${b.id})">✎ Rename</button>
+        <button class="btn btn-sm btn-green" onclick="saveBundle(${b.id})">💾 Save to file</button>
+        <button class="btn btn-sm btn-ghost" style="color:var(--rose)" onclick="deleteBundle(${b.id})">🗑 Delete</button></div>`);
+    }
+    if (!b.collapsed) {
+      const body = document.createElement('div');
+      body.className = 'b-body';
+      if (!b.poses.length) body.innerHTML = '<span class="xs dim" style="font-style:italic">Empty. Press “＋ Save Pose” to store the current servo positions here.</span>';
+      b.poses.forEach(p => {
+        const rp = renaming && renaming.kind === 'pose' && renaming.id === p.id;
+        const el = document.createElement('div');
+        el.className = 'block';
+        el.draggable = !rp;
+        el.title = 'Drag into the sequence · click to edit values';
+        el.innerHTML = `<span class="grip">⠿</span><span>📷</span>` + (rp
+          ? `<input id="rename-input" class="rn" type="text" value="${esc(p.name)}" onclick="event.stopPropagation()" onkeydown="renameKey(event)" onblur="commitRename(this.value)">`
+          : `<b>${esc(p.name)}</b>`) +
+          `<button class="x" title="Add to the end of the sequence" onclick="event.stopPropagation();addPoseToSequence(${p.id})">＋</button>
+           <button class="x" title="Rename" onclick="event.stopPropagation();renamePose(${p.id})">✎</button>
+           <button class="x" title="Delete pose" onclick="event.stopPropagation();deletePose(${p.id})">✕</button>`;
+        el.addEventListener('click', () => openPoseEditor(p.id));
+        el.addEventListener('dragstart', e => { dragData = { kind: 'lib', poseId: p.id }; e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', 'pose'); });
+        el.addEventListener('dragend', () => { dragData = null; });
+        body.appendChild(el);
+      });
+      box.appendChild(body);
+    }
+    root.appendChild(box);
+  });
+  const r = $('rename-input');
+  if (r) { r.focus(); r.select(); }
+}
+
+function initPalette() {
+  const el = $('delay-palette');
+  el.addEventListener('dragstart', e => { dragData = { kind: 'newdelay' }; e.dataTransfer.effectAllowed = 'copy'; e.dataTransfer.setData('text/plain', 'delay'); });
+  el.addEventListener('dragend', () => { dragData = null; });
+}
+
+// ---------- sequence ----------
+function addPoseToSequence(poseId) {
+  sequence.push({ uid: ++seqUid, type: 'pose', poseId });
+  updateSequenceUI();
+}
+function addDelayBlock() {
+  sequence.push({ uid: ++seqUid, type: 'delay', ms: 500 });
+  updateSequenceUI();
+}
+function deleteBlock(uid) {
+  const b = sequence.find(x => x.uid === uid);
+  if (editor && editor.target === b) closeEditor();
+  sequence = sequence.filter(x => x.uid !== uid);
+  updateSequenceUI();
+}
+function clearSequence() { sequence = []; closeEditor(); updateSequenceUI(); logTerminal('Sequence cleared (stored poses are kept).'); }
+
+function dropAt(idx) {
+  if (!dragData) return;
+  if (dragData.kind === 'seq') {
+    const from = dragData.idx;
+    const [m] = sequence.splice(from, 1);
+    if (from < idx) idx--;
+    sequence.splice(idx, 0, m);
+  } else if (dragData.kind === 'lib') {
+    if (poseObj(dragData.poseId)) sequence.splice(idx, 0, { uid: ++seqUid, type: 'pose', poseId: dragData.poseId });
+  } else if (dragData.kind === 'newdelay') {
+    sequence.splice(idx, 0, { uid: ++seqUid, type: 'delay', ms: 500 });
+  }
+  dragData = null;
+  updateSequenceUI();
+}
+function addDropHandlers(el, idx) {
+  el.addEventListener('dragover', e => { if (!dragData) return; e.preventDefault(); e.dataTransfer.dropEffect = dragData.kind === 'seq' ? 'move' : 'copy'; el.classList.add('over'); });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('over'); dropAt(idx); });
+}
+
+function updateSequenceUI() {
+  const list = $('keyframes-list');
+  $('pose-count').textContent = sequence.length;
+  $('play-seq-btn').disabled = sequence.length === 0 && !isPlaying;
+  list.innerHTML = '';
+  const order = [...servoState].sort((a, b) => a.pin - b.pin);
+  sequence.forEach((b, idx) => {
+    const el = document.createElement('div');
+    el.draggable = true;
+    if (b.type === 'pose') {
+      const p = poseObj(b.poseId);
+      if (!p) return;
+      const prev = order.slice(0, 4).map(s => p.angles[s.pin] !== undefined ? p.angles[s.pin] + '°' : '–').join(', ');
+      el.className = 'block';
+      el.innerHTML = `<span class="grip">⠿</span><span>📷</span><b>${esc(p.name)}</b><span class="xs dim">(${prev})</span>`;
+    } else {
+      el.className = 'block delay';
+      el.innerHTML = `<span class="grip">⠿</span><span>⏱</span><b>Delay</b><span class="xs">${b.ms}ms</span>`;
+    }
+    el.insertAdjacentHTML('beforeend', `<button class="x" title="Remove block" onclick="event.stopPropagation();deleteBlock(${b.uid})">✕</button>`);
+    el.addEventListener('click', () => openBlockEditor(b.uid));
+    el.addEventListener('dragstart', e => { dragData = { kind: 'seq', idx }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'block'); el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => { dragData = null; updateSequenceUI(); });
+    addDropHandlers(el, idx);
+    list.appendChild(el);
+  });
+  const zone = document.createElement('div');
+  zone.className = 'dropzone';
+  zone.textContent = sequence.length ? 'drop here to add at the end' : 'Drag pose blocks here from Pose Storage (or press ＋ on a pose)';
+  addDropHandlers(zone, sequence.length);
+  list.appendChild(zone);
+}
+
+function setPlayUI(playing) {
+  const b = $('play-seq-btn');
+  b.textContent = playing ? '■ Stop' : '▶ Play (stream)';
+  b.className = 'btn ' + (playing ? 'btn-rose' : 'btn-green');
+}
+async function playSequence() {
+  if (isPlaying) { stopRequested = true; return; }
+  if (!sequence.length) return;
+  isPlaying = true; stopRequested = false; setPlayUI(true);
+  const gap = parseInt($('sequence-delay').value);
+  logTerminal(`Playing sequence (${sequence.length} blocks)${$('loop-toggle').checked ? ', looping' : ''}...`);
+  do {
+    const seq = [...sequence];
+    for (let i = 0; i < seq.length && !stopRequested; i++) {
+      const b = seq[i];
+      if (b.type === 'pose') {
+        const p = poseObj(b.poseId);
+        if (p) applyPose(p);
+        const next = seq[i + 1];
+        if (next && next.type === 'pose') await sleep(gap);
+      } else await sleep(b.ms);
+    }
+    if (!stopRequested && $('loop-toggle').checked) await sleep(60);   // tiny pause so a loop can never spin flat out
+  } while (!stopRequested && $('loop-toggle').checked && sequence.length);
+  logTerminal(stopRequested ? 'Sequence stopped.' : 'Sequence complete.');
+  isPlaying = false; stopRequested = false; setPlayUI(false); updateSequenceUI();
+}
+function applyPose(p) {
+  servoState.forEach(s => { if (s.enabled && p.angles[s.pin] !== undefined) setServoAngle(s.id, p.angles[s.pin]); });
+}
+
+// ---------- block editor popup ----------
+function openBlockEditor(uid) {
+  const b = sequence.find(x => x.uid === uid);
+  if (!b) return;
+  if (b.type === 'pose') openPoseEditor(b.poseId);
+  else { editor = { type: 'delay', target: b, snapshot: JSON.parse(JSON.stringify(b)), live: false }; renderEditor(); $('editor-modal').classList.add('open'); }
+}
+function openPoseEditor(poseId) {
+  const p = poseObj(poseId);
+  if (!p) return;
+  servoState.forEach(s => { p.angles[s.pin] = clamp(p.angles[s.pin] === undefined ? s.angle : p.angles[s.pin], s.min, s.max); });
+  editor = { type: 'pose', target: p, snapshot: JSON.parse(JSON.stringify(p)), live: false };
+  renderEditor();
+  $('editor-modal').classList.add('open');
+}
+function closeEditor() {
+  editor = null;
+  $('editor-modal').classList.remove('open');
+  updateSequenceUI(); renderStorage();
+}
+
+function renderEditor() {
+  if (!editor) return;
+  const b = editor.target;
+  const body = $('editor-body'), foot = $('editor-actions'), dlg = $('editor-dialog');
+
+  if (editor.type === 'pose') {
+    const c4 = editorCols === 4;
+    dlg.classList.toggle('wide', c4);
+    $('editor-icon').textContent = '📷';
+    $('editor-title').value = b.name;
+    const order = [...servoState].sort((x, y) => x.pin - y.pin);
+    body.innerHTML = `
+      <div class="d-tools">
+        <span class="xs dim">Drag a slider or type an angle. Changes save automatically (rename poses in Pose Storage).</span>
+        <span class="row"><span class="xs dim">Layout</span>
+          <span class="seg"><button class="${c4 ? '' : 'on'}" onclick="setCols(1)" title="One column">1 col</button><button class="${c4 ? 'on' : ''}" onclick="setCols(4)" title="Four columns">4 col</button></span></span>
+      </div>
+      <div class="ed-grid ${c4 ? 'c4' : ''}">${order.map(s => {
+        const v = b.angles[s.pin], changed = v !== editor.snapshot.angles[s.pin];
+        return `<div class="ed-row ${s.enabled ? '' : 'off'} ${changed ? 'changed' : ''}" id="edrow-${s.pin}">
+          <div class="ed-head"><span class="pin">Pin ${s.pin}</span><span class="nm">${esc(s.label)}${s.enabled ? '' : ' (off)'}</span><span class="chip ${changed ? '' : 'hidden'}" id="edchg-${s.pin}">edited</span></div>
+          <div class="ed-ctl"><button onclick="nudge(${s.pin},-1)">−</button>
+            <input type="range" id="edr-${s.pin}" min="${s.min}" max="${s.max}" value="${v}" oninput="editPoseAngle(${s.pin}, this.value)">
+            <button onclick="nudge(${s.pin},1)">+</button></div>
+          <div class="ed-num"><input type="number" id="edn-${s.pin}" min="${s.min}" max="${s.max}" value="${v}" onchange="editPoseAngle(${s.pin}, this.value)"> °
+            <span>limit ${s.min}–${s.max}°</span></div>
+        </div>`; }).join('')}</div>`;
+    foot.innerHTML = `
+      <button class="btn btn-green" onclick="editorUpdate()" title="Send this pose to the servos one time">➤ Update</button>
+      <button class="btn btn-ghost" onclick="toggleLive()" title="While on, the servos follow the sliders as you drag"><span class="toggle-pill ${editor.live ? 'on' : ''}"></span>Live</button>
+      <button class="btn btn-ghost" onclick="editorUndo()" title="Put the values back to how they were when you opened this popup">↺ Undo</button>
+      <button class="btn btn-ghost" onclick="editorPhysical()" title="Copy the positions of the real servos into this pose (measured by the feedback wire when available)">✋ Physical</button>
+      <button class="btn btn-brand" style="margin-left:auto" onclick="closeEditor()">Done</button>`;
+  } else {
+    dlg.classList.remove('wide');
+    $('editor-icon').textContent = '⏱';
+    $('editor-title').value = 'Delay';
+    body.innerHTML = `
+      <div class="field">Wait time
+        <div class="row"><input type="number" id="delay-ms" min="0" step="50" value="${b.ms}" style="width:120px;font-size:15px" oninput="editDelay(this.value)"><span>ms</span></div></div>
+      <div class="row"><span class="xs dim">Quick pick</span>${[100, 250, 500, 1000, 2000, 5000].map(v => `<button class="btn btn-sm btn-ghost" onclick="setDelay(${v})">${v}ms</button>`).join('')}</div>`;
+    foot.innerHTML = `
+      <button class="btn btn-ghost" onclick="editorUndo()" title="Restore the time from when you opened this popup">↺ Undo</button>
+      <button class="btn btn-brand" style="margin-left:auto" onclick="closeEditor()">Done</button>`;
+  }
+}
+
+function setCols(n) { editorCols = n; renderEditor(); }
+
+function syncEditorRow(pin) {
+  const v = editor.target.angles[pin];
+  const r = $('edr-' + pin), n = $('edn-' + pin);
+  if (r) r.value = v;
+  if (n) n.value = v;
+  const changed = v !== editor.snapshot.angles[pin];
+  const row = $('edrow-' + pin), chip = $('edchg-' + pin);
+  if (row) row.classList.toggle('changed', changed);
+  if (chip) chip.classList.toggle('hidden', !changed);
+}
+function editPoseAngle(pin, v) {
+  if (!editor || editor.type !== 'pose') return;
+  const p = editor.target, s = servoByPin(pin);
+  if (!s || isNaN(parseInt(v))) return;
+  const nv = clamp(parseInt(v), s.min, s.max);
+  if (nv !== p.angles[pin]) { p.angles[pin] = nv; markDirty(p.id); }
+  syncEditorRow(pin);
+  if (editor.live && s.enabled) setServoAngle(s.id, nv);
+}
+function nudge(pin, d) { editPoseAngle(pin, editor.target.angles[pin] + d); }
+
+function editDelay(v) { if (editor && editor.type === 'delay') editor.target.ms = Math.max(0, parseInt(v) || 0); }
+function setDelay(v) { editDelay(v); renderEditor(); }
+
+function editorUpdate() {
+  if (!editor || editor.type !== 'pose') return;
+  applyPose(editor.target);
+  logTerminal(`"${editor.target.name}" sent to servos.`);
+}
+function toggleLive() {
+  editor.live = !editor.live;
+  if (editor.live) applyPose(editor.target);
+  renderEditor();
+  logTerminal('Live update ' + (editor.live ? 'ON' : 'OFF') + '.');
+}
+function editorUndo() {
+  if (!editor) return;
+  const snap = JSON.parse(JSON.stringify(editor.snapshot));
+  if (editor.type === 'pose') { editor.target.angles = snap.angles; if (editor.live) applyPose(editor.target); }
+  else editor.target.ms = snap.ms;
+  renderEditor();
+}
+function editorPhysical() {
+  if (!editor || editor.type !== 'pose') return;
+  const now = performance.now();
+  let measured = 0;
+  servoState.forEach(s => {
+    const arr = mon.d[s.pin], last = arr && arr[arr.length - 1];
+    let v = s.angle;
+    if (last && now - last.t < 3000) { if (last.ac !== null) { v = last.ac; measured++; } else v = last.cm; }   // measured (feedback) > commanded by the robot > last sent
+    editor.target.angles[s.pin] = clamp(v, s.min, s.max);
+  });
+  markDirty(editor.target.id);
+  renderEditor();
+  logTerminal(measured ? `Copied the physical positions measured by the servo feedback (${measured} servo${measured > 1 ? 's' : ''}).` : 'Copied the current servo positions into the pose.');
+}
+
+// ---------- WebSerial + device detection ----------
+// Firmware prints:  HELLO mode=<0|1> name=<ROBOT|CONTROLLER> cfg=<id> mac=<AA:BB:..>
+// at boot and whenever it receives "?".   mode 0 = robot ESP32, mode 1 = controller ESP32.
+async function toggleWebSerial() {
+  if (!('serial' in navigator)) { alert('WebSerial is not supported in this browser. Use Chrome, Edge or Opera.'); return; }
+  if (serialPort) { await disconnectSerial(); return; }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 115200 });
+    serialWriter = serialPort.writable.getWriter();
+    deviceInfo = null; setDeviceBadge(null);
+    updateSerialUI(true);
+    logTerminal('Connected via WebSerial (115200 baud). Asking the board to identify itself...');
+    startReadLoop();
+    requestHello(0);
+  } catch (err) {
+    serialPort = null; serialWriter = null;
+    logTerminal('WebSerial error: ' + err.message);
+  }
+}
+
+async function disconnectSerial() {
+  clearTimeout(helloTimer);
+  try { if (serialReader) await serialReader.cancel(); } catch (e) {}
+  try { await readDone; } catch (e) {}
+  try { if (serialWriter) serialWriter.releaseLock(); } catch (e) {}
+  try { await serialPort.close(); } catch (e) {}
+  serialPort = null; serialWriter = null; serialReader = null; deviceInfo = null;
+  setDeviceBadge(null); closeDevice(); updateSerialUI(false); fusionControlsState();
+  logTerminal('Disconnected from serial port.');
+}
+
+function startReadLoop() {
+  const port = serialPort;
+  readDone = (async () => {
+    const dec = new TextDecoder();
+    let buf = '';
+    try {
+      serialReader = port.readable.getReader();
+      while (true) {
+        const { value, done } = await serialReader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) { handleDeviceLine(buf.slice(0, i).trim()); buf = buf.slice(i + 1); }
+      }
+    } catch (e) {
+      if (serialPort === port) logTerminal('Serial read error: ' + e.message);
+    } finally {
+      try { serialReader.releaseLock(); } catch (e) {}
+    }
+  })();
+}
+
+async function sendRaw(text) {
+  if (!serialWriter) return;
+  try { await serialWriter.write(new TextEncoder().encode(text)); }
+  catch (err) { logTerminal('TX error: ' + err.message); }
+}
+
+function requestHello(attempt) {
+  // boards often reset when the port opens, so wait before asking; retry a couple of times
+  helloTimer = setTimeout(async () => {
+    if (!serialPort || deviceInfo) return;
+    if (attempt >= 6) { showDeviceModal(null); return; }
+    await sendRaw('?\n');
+    requestHello(attempt + 1);
+  }, attempt === 0 ? 1300 : 1500);
+}
+
+function parseHello(line) {
+  const kv = {};
+  line.replace(/^HELLO\s*/, '').split(/\s+/).forEach(t => { const i = t.indexOf('='); if (i > 0) kv[t.slice(0, i)] = t.slice(i + 1); });
+  return { mode: parseInt(kv.mode), name: kv.name || '', cfg: kv.cfg || '', mac: (kv.mac || '').toUpperCase(),
+           fusion: parseInt(kv.fusion) || 0, fstream: parseInt(kv.fstream) || 0, compass: parseInt(kv.compass) || 0, prog: parseInt(kv.prog) || 0, fb: parseInt(kv.fb) || 0 };
+}
+
+function handleDeviceLine(line) {
+  if (!line) return;
+  if (line.startsWith('Q ')) { handleQuatLine(line); return; }
+  if (line.startsWith('T r ')) { handleTelemLine(line); return; }   // servo telemetry (target / commanded / physical)
+  if (line.startsWith('RSTAT ')) handleRstat(line);
+  if (line.startsWith('FBCAL ')) handleFbCal(line);
+  if (ackWait && (line === 'OK ' + ackWait.key || line === 'ERR ' + ackWait.key)) { const w = ackWait; ackWait = null; w.resolve(line.startsWith('OK')); return; }
+  if (line.startsWith('M ')) { handleMagLine(line); return; }   // raw compass samples (calibration)
+  if (line.startsWith('FUSION calibrating')) cal.gyro = 'running';
+  if (line.startsWith('FUSION gyro calibrated')) cal.gyro = 'done';   // orientation data: not logged (too frequent)
+  if (line.startsWith('HELLO')) {
+    const info = parseHello(line);
+    const first = !deviceInfo;
+    deviceInfo = info;
+    setDeviceBadge(info);
+    logTerminal('RX <- ' + line);
+    if (first) {
+      clearTimeout(helloTimer);
+      if (cfg.esp.dual && MODE_NAMES[info.mode]) { prepView = info.mode === 1 ? 'ctrl' : 'robot'; renderPrepare(); }
+      showDeviceModal(info);
+      if (info.prog) sendRaw('c 1 1\n');   // servo telemetry on (graphs)
+      if (info.mode === 1 && info.fusion === 1 && fusionWant) sendRaw('f 1\n');   // start the controller's own orientation stream
+      fusionControlsState();
+    }
+    return;
+  }
+  logTerminal('RX <- ' + line);
+}
+
+const MODE_NAMES = { 0: ['🤖', 'Robot'], 1: ['🎮', 'Controller'] };
+function setDeviceBadge(info) {
+  const b = $('device-badge');
+  if (!info || !MODE_NAMES[info.mode]) { b.classList.add('hidden'); return; }
+  b.textContent = `${MODE_NAMES[info.mode][0]} ${MODE_NAMES[info.mode][1]} (mode ${info.mode})`;
+  b.classList.remove('hidden');
+}
+
+function configStatus(info) {
+  const role = info.mode;
+  const cur = currentConfig('current');
+  const expected = cfgId(role, cur), defId = cfgId(role, validateConfig(DEFAULT_CONFIG));
+  const out = [];
+  if (!info.cfg) out.push(['warn', 'This firmware does not report a config id (older firmware). Flash the code from the Prepare tab to get config checking.']);
+  else if (info.cfg === expected && expected !== defId) out.push(['ok', 'The firmware config matches the config loaded in the web.']);
+  else if (info.cfg === expected) out.push(['ok', 'The firmware is using the default config, and the web is too, so they match.']);
+  else if (info.cfg === defId) out.push(['warn', 'The device is running the DEFAULT config. Your config has not been flashed yet: copy the code from the Prepare tab and flash it.']);
+  else out.push(['warn', 'The device was flashed with a different config than the one loaded in the web. Flash the code from the Prepare tab, or choose the config file that matches this firmware.']);
+  if (expected === defId) out.push(['info', 'No custom config is loaded in the web: it is using the built-in default config.']);
+  return out;
+}
+
+function showDeviceModal(info) {
+  let html;
+  if (!info) {
+    html = `<div class="sbox warn"><b>The board did not identify itself.</b><br>It may be running firmware without device detection, or a different baud rate (this page uses 115200). Servo control may still work. Flash the code from the Prepare tab to enable mode and config detection.</div>`;
+    $('device-title').textContent = 'Unknown device';
+  } else if (!MODE_NAMES[info.mode]) {
+    html = `<div class="sbox warn">The board reported an unknown mode: <b>${esc(info.mode)}</b>.</div>`;
+    $('device-title').textContent = 'Unknown device mode';
+  } else {
+    const [icon, nm] = MODE_NAMES[info.mode];
+    $('device-title').textContent = `${icon} ${nm} detected`;
+    const desc = info.mode === 0
+      ? 'This ESP32 drives the PCA9685 and the servos. Commands from this page move the servos directly.'
+      : 'This ESP32 is the wireless controller. Commands from this page are forwarded over ESP-NOW to the robot ESP32.';
+    html = `<div class="row" style="gap:10px"><span style="font-size:34px">${icon}</span><div><div style="font-size:16px;font-weight:700">${nm} — device mode ${info.mode}</div><div class="xs mute">${esc(desc)}</div></div></div>
+      <div class="kv"><span class="mute">Name</span><span>${esc(info.name || '–')}</span></div>
+      <div class="kv"><span class="mute">MAC</span><span>${esc(info.mac || '–')}</span></div>
+      <div class="kv"><span class="mute">Firmware config id</span><span>${esc(info.cfg || '–')}</span></div>
+      <div class="kv"><span class="mute">Sensor fusion</span><span>${['not built in', 'OK (MPU6050 found)', 'MPU6050 NOT found'][info.fusion] || '–'}</span></div>` +
+      configStatus(info).map(([cls, t]) => `<div class="sbox ${cls}">${cls === 'ok' ? '✔' : cls === 'warn' ? '⚠' : 'ℹ'} ${esc(t)}</div>`).join('');
+    if (info.mac && /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(info.mac)) {
+      html += `<button class="btn btn-ghost" onclick="rememberMac()">Use this MAC as the ${info.mode === 0 ? 'Robot' : 'Controller'} MAC in the ESP config</button>`;
+    }
+  }
+  $('device-body').innerHTML = html;
+  $('device-modal').classList.add('open');
+}
+function closeDevice() { $('device-modal').classList.remove('open'); }
+function rememberMac() {
+  if (!deviceInfo) return;
+  setEsp(deviceInfo.mode === 0 ? 'robotMac' : 'ctrlMac', deviceInfo.mac);
+  closeDevice();
+}
+
+function updateSerialUI(on) {
+  $('connect-btn').className = 'btn ' + (on ? 'btn-rose' : 'btn-green');
+  $('connect-text').textContent = on ? 'Disconnect Serial' : 'Connect WebSerial';
+}
+async function sendServoCommand(pin, angle) {
+  logTerminal(`TX -> pin [${pin}]: ${angle}° (${angleToTicks(angle)} ticks, ${angleToPulse(angle)}µs)`);
+  await sendRaw(`s ${pin} ${angle}\n`);
+}
+
+// ---------- terminal ----------
+function logTerminal(message) {
+  const term = $('terminal-out');
+  const e = document.createElement('div');
+  const t = document.createElement('span');
+  t.className = 'dim';
+  t.textContent = '[' + new Date().toLocaleTimeString().split(' ')[0] + '] ';
+  e.appendChild(t);
+  e.appendChild(document.createTextNode(message));
+  term.appendChild(e);
+  while (term.children.length > 300) term.removeChild(term.firstChild);
+  term.scrollTop = term.scrollHeight;
+}
+function clearTerminal() { $('terminal-out').innerHTML = '<div class="dim">// Terminal cleared.</div>'; }
+
+// ---------- prepare tab: wiring + ESP config + firmware ----------
+let currentBoard = 'esp32';
+function switchBoard(type) {
+  currentBoard = type;
+  $('btn-board-esp32').className = 'btn btn-sm' + (type === 'esp32' ? ' btn-brand' : '');
+  $('btn-board-uno').className = 'btn btn-sm' + (type === 'uno' ? ' btn-brand' : '');
+  renderBoardDiagram(type);
+}
+function renderBoardDiagram(board) {
+  const esp = board === 'esp32', e = cfg.esp;
+  const sda = esp ? `GPIO ${e.sda}` : 'Pin A4', scl = esp ? `GPIO ${e.scl}` : 'Pin A5';
+  $('sda-pin-text').textContent = `${sda} (${esp ? 'ESP32' : 'Arduino Uno'})`;
+  $('scl-pin-text').textContent = `${scl} (${esp ? 'ESP32' : 'Arduino Uno'})`;
+  $('tbl-sda').textContent = `GPIO ${e.sda}`;
+  $('tbl-scl').textContent = `GPIO ${e.scl}`;
+  const rows = esp
+    ? [['amber', '3.3V / VIN', '3.3V logic power'], ['mute', 'GND', 'Common ground'], ['', sda, 'SDA line'], ['green', scl, 'SCL line']]
+    : [['amber', '5V', '5V logic power'], ['mute', 'GND', 'Common ground'], ['', sda, 'SDA line'], ['green', scl, 'SCL line']];
+  $('board-diagram').innerHTML = rows.map(r => `<div class="kv"><span class="${r[0]}" ${r[0] === '' ? 'style="color:#22d3ee"' : ''}>${r[1]}</span><span>${r[2]}</span></div>`).join('');
+  if (!esp) $('board-diagram').insertAdjacentHTML('beforeend', '<div class="xs dim">The generated firmware is for ESP32 only.</div>');
+}
+
+let prepView = 'robot';
+function setPrepView(v) { prepView = v; renderPrepare(); }
+
+function renderPrepare() {
+  const e = cfg.esp, c = currentConfig('current');
+  if (!e.dual) prepView = 'robot';
+  $('esp-dual').checked = e.dual;
+  $('esp-sda').value = e.sda; $('esp-scl').value = e.scl;
+  $('esp-channel').value = e.channel; $('esp-robot-mac').value = e.robotMac; $('esp-ctrl-mac').value = e.ctrlMac;
+  $('esp-dual-fields').classList.toggle('hidden', !e.dual);
+  $('prep-switch').classList.toggle('hidden', !e.dual);
+  $('prep-btn-robot').className = prepView === 'robot' ? 'on' : '';
+  $('prep-btn-ctrl').className = prepView === 'ctrl' ? 'on' : '';
+  $('prep-robot').classList.toggle('hidden', prepView !== 'robot');
+  $('prep-ctrl').classList.toggle('hidden', prepView !== 'ctrl');
+  $('mac-warn').classList.toggle('hidden', !(e.dual && e.robotMac === ZERO_MAC));
+  $('robot-fw-title').textContent = e.dual ? 'Robot ESP32 firmware (device mode 0)' : 'ESP32 firmware (device mode 0: robot)';
+  $('robot-cfg-id').textContent = 'config id ' + cfgId(0, c);
+  $('ctrl-cfg-id').textContent = 'config id ' + cfgId(1, c);
+  $('code-display').textContent = robotFirmware();
+  $('code-display-ctrl').textContent = controllerFirmware();
+}
+
+const macBytes = (m) => m.split(':').map(x => '0x' + x).join(', ');
+const cf = (x) => (Number.isInteger(x) ? x + '.0' : String(x));
+
+function commonDefs(role, name, id, verbose) {
+  return `#define DEVICE_MODE ${role}   // 0 = robot, 1 = controller
+#define DEVICE_NAME "${name}"
+#define CFG_ID      "${id}"   // id of the config baked into this code
+#define VERBOSE     ${verbose ? 1 : 0}   // 1 = print debug info on Serial (set in the web Settings)
+#define LOG(...)    do { if (VERBOSE) Serial.printf(__VA_ARGS__); } while (0)`;
+}
+
+const READ_SERIAL = `void readSerial() {
+  while (Serial.available()) {
+    char ch = Serial.read();
+    if (ch == '\\n') {
+      handleLine(line);
+      line = "";
+    } else if (ch != '\\r') {
+      line += ch;
+      if (line.length() > 700) line = "";
+    }
+  }
+}`;
+
+const FUSION_INCLUDES = '#include <Adafruit_MPU6050.h>\n#include <Adafruit_Sensor.h>\n#include <Adafruit_AHRS.h>';
+
+// MPU6050 + compass -> Mahony filter -> quaternion (follows your sensorfusion1.ino)
+function fusionBlock(mag) {
+  return `// ---- Sensor fusion: MPU6050 (0x68) + compass (0x2C) -> Mahony filter -> quaternion ----
+// Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"
+#define MAG_ADDR 0x2C
+#define I2C_CLOCK 400000       // faster I2C (400 kHz). Use 100000 if your wires are long or flaky.
+#define FUSION_EVERY 4         // filter runs at 100 Hz, one quaternion is sent every N samples (4 = 25 per second)
+// Compass hard-iron offsets: written by the web page (Calibrate tab -> Settings). "o x y z" changes them until reboot.
+float magOffX = ${cf(mag[0])};
+float magOffY = ${cf(mag[1])};
+float magOffZ = ${cf(mag[2])};
+bool magStream = false;        // raw compass stream for the web calibration page
+unsigned long lastMagStreamMs = 0;
+
+Adafruit_MPU6050 mpu;
+Adafruit_Mahony filter;
+bool magOk = false;
+int fusionState = 0;           // 0 = not started, 1 = OK, 2 = MPU6050 not found
+float gyroBiasX = 0, gyroBiasY = 0, gyroBiasZ = 0;
+unsigned long lastFusionUs = 0;
+int fusionTick = 0;
+float qW = 1, qX = 0, qY = 0, qZ = 0;
+
+bool readMagRaw(int16_t &rx, int16_t &ry, int16_t &rz) {
+  Wire.beginTransmission(MAG_ADDR);
+  Wire.write(0x01);
+  Wire.endTransmission();
+  Wire.requestFrom(MAG_ADDR, 6);
+  if (Wire.available() < 6) return false;
+  uint8_t xl = Wire.read(); uint8_t xh = Wire.read();
+  uint8_t yl = Wire.read(); uint8_t yh = Wire.read();
+  uint8_t zl = Wire.read(); uint8_t zh = Wire.read();
+  rx = (int16_t)(xh << 8 | xl);
+  ry = (int16_t)(yh << 8 | yl);
+  rz = (int16_t)(zh << 8 | zl);
+  return true;
+}
+
+bool readMag(float &mx, float &my, float &mz) {
+  int16_t rx, ry, rz;
+  if (!readMagRaw(rx, ry, rz)) return false;
+  mx = (float)rx - magOffX;      // same axis flips as your sensorfusion1.ino
+  my = -(float)ry - magOffY;
+  mz = -(float)rz - magOffZ;
+  return true;
+}
+
+void calibrateGyro() {
+  Serial.println("FUSION calibrating gyro, keep still...");
+  float sx = 0, sy = 0, sz = 0;
+  for (int i = 0; i < 200; i++) {
+    sensors_event_t a, g, t;
+    mpu.getEvent(&a, &g, &t);
+    sx += g.gyro.x; sy += g.gyro.y; sz += g.gyro.z;   // float sums (a long would truncate the values)
+    delay(10);
+  }
+  gyroBiasX = sx / 200.0f;
+  gyroBiasY = sy / 200.0f;
+  gyroBiasZ = sz / 200.0f;
+  Serial.println("FUSION gyro calibrated");
+}
+
+void initFusion() {
+  if (!mpu.begin()) {
+    Serial.println("ERR MPU6050 not found, sensor fusion disabled");
+    fusionState = 2;
+    return;
+  }
+  Wire.beginTransmission(0x68);   // wake up, use the gyro clock
+  Wire.write(0x6B);
+  Wire.write(0x01);
+  Wire.endTransmission();
+  mpu.setAccelerometerRange(MPU6050_RANGE_4_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
+
+  Wire.beginTransmission(MAG_ADDR);   // compass init
+  Wire.write(0x0A);
+  Wire.write(0xCF);
+  magOk = (Wire.endTransmission() == 0);
+  if (!magOk) Serial.println("WARN compass not found, using gyro + accelerometer only");
+
+  calibrateGyro();
+  filter.begin(100);
+  lastFusionUs = micros();
+  fusionState = 1;
+  Serial.println("FUSION ready");
+}
+
+// Runs the filter at a steady 100 Hz without blocking. Returns true when a new sample was computed.
+bool updateFusion() {
+  if (fusionState != 1) return false;
+  unsigned long now = micros();
+  unsigned long dt = now - lastFusionUs;
+  if (dt < 10000) return false;
+  lastFusionUs = (dt > 50000) ? now : lastFusionUs + 10000;
+
+  sensors_event_t a, g, t;
+  mpu.getEvent(&a, &g, &t);
+  float gx = (g.gyro.x - gyroBiasX) * 57.2958f;   // rad/s -> deg/s
+  float gy = (g.gyro.y - gyroBiasY) * 57.2958f;
+  float gz = (g.gyro.z - gyroBiasZ) * 57.2958f;
+
+  float mx, my, mz;
+  if (magOk && readMag(mx, my, mz)) {
+    filter.update(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z, mx, my, mz);
+  } else {
+    filter.updateIMU(gx, gy, gz, a.acceleration.x, a.acceleration.y, a.acceleration.z);
+  }
+  filter.getQuaternion(&qW, &qX, &qY, &qZ);
+  return true;
+}
+
+// Calibration stream "M <r|c> x y z": compass values after the axis flips, before the offsets are subtracted.
+void streamMag(char src) {
+  if (!magStream || !magOk || millis() - lastMagStreamMs < 20) return;
+  lastMagStreamMs = millis();
+  int16_t rx, ry, rz;
+  if (readMagRaw(rx, ry, rz)) Serial.printf("M %c %d %d %d\\n", src, (int)rx, -(int)ry, -(int)rz);
+}
+
+// "Q <r|c> w x y z"  (r = robot, c = controller). The web page draws the 3D view from these lines.
+void printQuat(char src) {
+  Serial.printf("Q %c %.4f %.4f %.4f %.4f\\n", src, qW, qX, qY, qZ);
+}`;
+}
+
+// HELLO line: device mode, config id, real STA MAC, sensor fusion state, features
+function helloFn(fusionBuilt, streamExpr, fbExpr) {
+  return String.raw`void macToStr(char *out) {   // out needs 18 bytes
+  uint8_t m[6];
+  esp_read_mac(m, ESP_MAC_WIFI_STA);
+  snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+}
+
+void printHello() {
+  char mac[18];
+  macToStr(mac);
+  Serial.printf("HELLO mode=%d name=%s cfg=%s mac=%s fusion=%d fstream=%d compass=%d prog=1 fb=%d\n",
+                DEVICE_MODE, DEVICE_NAME, CFG_ID, mac, ${fusionBuilt ? 'fusionState' : '0'}, ${streamExpr}, ${fusionBuilt ? '(magOk ? 1 : 0)' : '0'}, ${fbExpr});
+}`;
+}
+
+const PROTO_DEFS = String.raw`// ---- radio protocol (shared by robot and controller) ----
+#define CMD_PROG    0xB1   // controller -> robot: chunk of a sequence program (upload, then run)
+#define CMD_STOP    0xB4   // controller -> robot: stop the running program
+#define CMD_BATCH   0xB6   // controller -> robot: move several servos together (one packet)
+#define CMD_CTRL    0xB7   // controller -> robot: small settings (telemetry, loop, clear overload, speed)
+#define MSG_IMU     0xA1   // robot -> controller: orientation
+#define MSG_STATUS  0xA2   // robot -> controller: events (program received, overload ...)
+#define MSG_TELEM   0xA3   // robot -> controller: servo target / commanded / physical positions
+#define CHUNK_BYTES 200    // program bytes per packet (ESP-NOW allows 250)`;
+
+// prints one telemetry packet as a text line for the web page
+const TELEM_PRINT = String.raw`// "T r <mask> <stalledMask> <flags> target:commanded:physical,..."  (physical = -1 when the servo has no feedback)
+void printTelemetry(const uint8_t *b, int len) {
+  uint16_t mask = b[1] | (b[2] << 8), stm = b[3] | (b[4] << 8);
+  char out[260];
+  int n = snprintf(out, sizeof(out), "T r %u %u %u ", (unsigned)mask, (unsigned)stm, (unsigned)b[5]);
+  int idx = 6;
+  bool first = true;
+  for (int p = 0; p < 16; p++) {
+    if (!(mask & (1 << p))) continue;
+    if (idx + 3 > len || n > (int)sizeof(out) - 16) break;
+    int a = b[idx + 2];
+    n += snprintf(out + n, sizeof(out) - n, "%s%d:%d:%d", first ? "" : ",", b[idx], b[idx + 1], a == 255 ? -1 : a);
+    idx += 3;
+    first = false;
+  }
+  Serial.println(out);
+}`;
+
+function robotFirmware() {
+  const c = currentConfig('current'), e = c.esp, f = c.fw, sf = c.safety, dual = e.dual, fu = f.robotFusion;
+  const lo = Array(16).fill(0), hi = Array(16).fill(180);
+  const fbPin = Array(16).fill(-1), raw0 = Array(16).fill(0), raw180 = Array(16).fill(4095);
+  c.servos.forEach(sv => { lo[sv.pin] = sv.min; hi[sv.pin] = sv.max; if (sv.fbPin >= 0) { fbPin[sv.pin] = sv.fbPin; raw0[sv.pin] = sv.fbRaw0; raw180[sv.pin] = sv.fbRaw180; } });
+  const fbCount = fbPin.filter(x => x >= 0).length;
+  const id = cfgId(0, c);
+  const inc = ['#include <Wire.h>', '#include <Adafruit_PWMServoDriver.h>',
+    ...(dual ? ['#include <WiFi.h>', '#include <esp_now.h>', '#include <esp_wifi.h>', '#include <esp_err.h>'] : []),
+    '#include <esp_mac.h>', '#include <string.h>', '#include <math.h>', ...(fu ? [FUSION_INCLUDES] : [])].join('\n');
+  const flt = (x) => (Number.isInteger(x) ? x + '.0f' : x + 'f');
+
+  const sections = [
+String.raw`/*
+ * Robot Firmware - ESP32 Arduino core 3.x - DEVICE MODE 0 (ROBOT)
+ * Generated by PCA9685 Control Studio.
+ * PCA9685 servos with a smooth, synchronized, speed-limited motion engine,
+ * an on-board sequence player (upload once, then run / loop locally)${dual ? ', ESP-NOW receiver' : ''}${fu ? ', sensor fusion' : ''}
+ * Libraries: "Adafruit PWM Servo Driver Library"${fu ? ', "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"' : ''}
+ * Serial (115200):  s <pin> <angle>   PU ... (program chunk)   PS (stop)   c <id> <arg>   ?${fu ? '   g   m 1|0   o x y z' : ''}   fbcal <pin>   fbset <pin> <raw0> <raw180>
+ */`,
+inc,
+String.raw`${commonDefs(0, 'ROBOT', id, f.robotVerbose)}
+
+#define SDA_PIN ${e.sda}
+#define SCL_PIN ${e.scl}
+#define SERVO_FREQ 50
+#define SERVOMIN ${c.servomin}   // pulse count (out of 4096) at 0 degrees
+#define SERVOMAX ${c.servomax}   // pulse count (out of 4096) at 180 degrees${dual ? `\n#define ESPNOW_CHANNEL ${e.channel}` : ''}
+#define PROG_MAX 2048            // bytes of sequence program the robot can store
+
+// Allowed angle range per PCA9685 pin (from your servo config)
+const int LIM_MIN[16] = {${lo.join(', ')}};
+const int LIM_MAX[16] = {${hi.join(', ')}};
+
+// ---- load safety (web Settings -> Load & safety) ----
+#define MAX_SPEED_DPS    ${sf.maxSpeed > 0 ? flt(sf.maxSpeed) : '100000.0f'}   // fastest a servo may move (deg/s)${sf.maxSpeed > 0 ? '' : ' (no limit)'}
+#define STALL_ERR_DEG    ${flt(sf.stallErr)}   // overload if the servo is this far from where it was told to be ...
+#define STALL_MS         ${Math.round(sf.stallMs)}      // ... for this long (needs the feedback wire)
+#define STALL_RETRIES    ${Math.round(sf.retries)}        // slow-down retries before the program is stopped
+#define SLOWDOWN_FACTOR  ${flt(sf.slowdown)}   // every servo slows to this fraction after an overload
+#define MIN_SPEED_SCALE  ${flt(sf.minScale)}
+
+// ---- optional position feedback: ADC1 pin wired to each servo's feedback line, -1 = none ----
+const int8_t FB_PIN[16] = {${fbPin.join(', ')}};
+float fbRaw0[16]   = {${raw0.join(', ')}};      // ADC reading at 0 degrees
+float fbRaw180[16] = {${raw180.join(', ')}};    // ADC reading at 180 degrees
+#define FB_COUNT ${fbCount}
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();   // I2C address 0x40
+String line;
+volatile int16_t pendingAngle[16];   // -1 = nothing waiting (filled by the radio callback, applied in loop)
+volatile uint16_t pendingBatch = 0;  // pins that arrived together in one batch packet
+
+// motion engine state
+float cmdAngle[16];  bool cmdKnown[16];  int lastTicks[16];   // what is being output now
+float tgtAngle[16];  bool chase[16];                          // where each servo is heading
+float actAngle[16];  bool fbValid[16];                        // physical position (feedback)
+bool stalled[16];    uint32_t errSince[16];
+bool grpActive = false;  uint16_t grpMask = 0;  float grpFrom[16], grpTo[16];  uint32_t grpStart = 0, grpDur = 1;
+float speedScale = 1.0f;  bool overloadLatched = false;  int overloadRetries = 0;
+uint32_t lastTick = 0, lastFb = 0, lastTelMs = 0;  bool telemetryOn = false;
+
+// sequence program state
+uint8_t prog[PROG_MAX];  uint16_t progLen = 0, progGot = 0, progCrc = 0;  uint8_t progId = 0, progSteps = 0;
+bool progValid = false, progLoop = false;
+bool running = false, inMove = false, waiting = false, retryPending = false;
+uint16_t pc = 0, stepPc = 0, stepMask = 0;  uint32_t waitUntil = 0, retryAt = 0, settleUntil = 0;
+bool settling = false;`,
+fu ? fusionBlock(f.robotMag) : '',
+helloFn(fu, fu ? '(fusionState == 1 ? 1 : 0)' : '0', 'FB_COUNT'),
+PROTO_DEFS,
+TELEM_PRINT,
+String.raw`enum { ST_PROG_OK = 1, ST_PROG_BAD, ST_RUN_START, ST_RUN_END, ST_STOPPED, ST_OVERLOAD, ST_ABORT, ST_SLOWDOWN, ST_GAP, ST_CLEARED };
+${dual ? String.raw`
+const uint8_t BCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};   // telemetry and status are broadcast to the controller
+bool radioUp = false;
+${fu ? String.raw`struct __attribute__((packed)) ImuMsg {   // robot -> controller orientation
+  uint8_t type;
+  float w, x, y, z;
+};
+
+void sendQuat() {
+  ImuMsg m = { MSG_IMU, qW, qX, qY, qZ };
+  if (radioUp) esp_now_send(BCAST_MAC, (const uint8_t *)&m, sizeof(m));
+}
+` : ''}` : ''}
+// Events go to Serial and (with a controller) over the radio: "RSTAT <code> <a> <b>"
+void sendStatus(uint8_t code, uint8_t a, uint8_t b) {
+  Serial.printf("RSTAT %d %d %d\n", code, a, b);${dual ? `
+  if (radioUp) {
+    uint8_t m[4] = { MSG_STATUS, code, a, b };
+    esp_now_send(BCAST_MAC, m, sizeof(m));
+  }` : ''}
+}`,
+String.raw`// ================= motion engine =================
+// Every move is time based: all servos of a pose start together and arrive together on a smooth curve.
+// If a servo would have to move faster than MAX_SPEED_DPS, the whole move is stretched, so the load stays shared.
+uint16_t u16(const uint8_t *p) {
+  return p[0] | (p[1] << 8);
+}
+
+int angleToTicks(float angle) {
+  return (int)lroundf(SERVOMIN + (angle / 180.0f) * (SERVOMAX - SERVOMIN));
+}
+
+void writeServo(int pin, float angle) {   // clamps to the limits, writes only when the pulse changes
+  angle = constrain(angle, (float)LIM_MIN[pin], (float)LIM_MAX[pin]);
+  int ticks = angleToTicks(angle);
+  if (!cmdKnown[pin] || ticks != lastTicks[pin]) {
+    pwm.setPWM(pin, 0, ticks);
+    lastTicks[pin] = ticks;
+  }
+  cmdAngle[pin] = angle;
+  cmdKnown[pin] = true;
+}
+
+float readRaw(int pin) {
+  long sum = 0;
+  for (int i = 0; i < 16; i++) sum += analogRead(FB_PIN[pin]);
+  return sum / 16.0f;
+}
+
+void readFeedback() {
+  for (int p = 0; p < 16; p++) {
+    if (FB_PIN[p] < 0) continue;
+    float span = fbRaw180[p] - fbRaw0[p];
+    if (fabsf(span) < 50.0f) { fbValid[p] = false; continue; }
+    int sum = 0;
+    for (int i = 0; i < 4; i++) sum += analogRead(FB_PIN[p]);
+    float deg = (sum / 4.0f - fbRaw0[p]) * 180.0f / span;
+    actAngle[p] = fbValid[p] ? actAngle[p] * 0.6f + deg * 0.4f : deg;
+    fbValid[p] = true;
+  }
+}
+
+// A servo is overloaded: stop pushing, hold where it really is, stop the whole move, slow everything down and retry.
+void onStall(int pin) {
+  float hold = fbValid[pin] ? actAngle[pin] : cmdAngle[pin];
+  stalled[pin] = true;
+  writeServo(pin, hold);
+  tgtAngle[pin] = cmdAngle[pin];
+  chase[pin] = false;
+  if (grpActive) {
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+    grpActive = false;
+    grpMask = 0;
+  }
+  overloadRetries++;
+  sendStatus(ST_OVERLOAD, pin, overloadRetries);
+  if (running && overloadRetries <= STALL_RETRIES) {
+    speedScale = fmaxf(MIN_SPEED_SCALE, speedScale * SLOWDOWN_FACTOR);
+    sendStatus(ST_SLOWDOWN, (uint8_t)lroundf(speedScale * 100), 0);
+    retryPending = true;
+    retryAt = millis() + 700;
+  } else {
+    running = false; inMove = false; settling = false; waiting = false; retryPending = false;
+    overloadLatched = true;
+    sendStatus(ST_ABORT, pin, 0);
+  }
+}
+
+void checkStalls(uint32_t now) {
+  for (int p = 0; p < 16; p++) {
+    if (!fbValid[p] || !cmdKnown[p] || stalled[p]) continue;
+    if (fabsf(cmdAngle[p] - actAngle[p]) > STALL_ERR_DEG) {
+      if (errSince[p] == 0) errSince[p] = now;
+      else if (now - errSince[p] > STALL_MS) { onStall(p); return; }
+    } else {
+      errSince[p] = 0;
+    }
+  }
+}
+
+void clearOverload() {
+  for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+  overloadLatched = false;
+  overloadRetries = 0;
+  retryPending = false;
+  speedScale = 1.0f;
+  sendStatus(ST_CLEARED, 0, 0);
+}
+
+void setTarget(int pin, float angle) {   // one servo: chases its target at the speed limit
+  if (pin < 0 || pin > 15) return;
+  if (stalled[pin]) { LOG("Pin %d is overloaded and held (clear it from the web page)\n", pin); return; }
+  angle = constrain(angle, (float)LIM_MIN[pin], (float)LIM_MAX[pin]);
+  tgtAngle[pin] = angle;
+  if (!cmdKnown[pin]) writeServo(pin, fbValid[pin] ? actAngle[pin] : angle);   // unknown start: begin where the servo really is
+  grpMask &= ~(1 << pin);
+  chase[pin] = true;
+  LOG("Target pin %d -> %d\n", pin, (int)angle);
+}
+
+void startGroup(uint16_t mask, uint32_t durMs) {   // several servos, tgtAngle[] already set
+  float limitDps = MAX_SPEED_DPS * speedScale;
+  float T = (float)durMs;
+  for (int p = 0; p < 16; p++) {
+    if (!(mask & (1 << p))) continue;
+    if (stalled[p]) { mask &= ~(1 << p); continue; }
+    float from = cmdKnown[p] ? cmdAngle[p] : (fbValid[p] ? actAngle[p] : tgtAngle[p]);
+    if (!cmdKnown[p]) writeServo(p, from);
+    grpFrom[p] = from;
+    grpTo[p] = tgtAngle[p];
+    float need = 1.5f * fabsf(grpTo[p] - from) / limitDps * 1000.0f;   // smooth-step peaks at 1.5x the average speed
+    if (need > T) T = need;
+  }
+  if (grpActive) {   // servos of an earlier move that are not in this one simply stop where they are
+    for (int p = 0; p < 16; p++) if ((grpMask & (1 << p)) && !(mask & (1 << p))) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+  }
+  for (int p = 0; p < 16; p++) if (mask & (1 << p)) chase[p] = false;
+  grpMask = mask;
+  grpStart = millis();
+  grpDur = (T < 1.0f) ? 1 : (uint32_t)T;
+  grpActive = (mask != 0);
+}
+
+void motionTick() {
+  uint32_t now = millis();
+  if (now - lastTick < 10) return;
+  float dt = (now - lastTick) / 1000.0f;
+  lastTick = now;
+  if (now - lastFb >= 20) {
+    lastFb = now;
+    readFeedback();
+    checkStalls(now);
+  }
+  if (grpActive) {
+    float t = (float)(now - grpStart) / (float)grpDur;
+    if (t > 1.0f) t = 1.0f;
+    float e = t * t * (3.0f - 2.0f * t);
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) writeServo(p, grpFrom[p] + (grpTo[p] - grpFrom[p]) * e);
+    if (t >= 1.0f) { grpActive = false; grpMask = 0; }
+  }
+  float step = MAX_SPEED_DPS * speedScale * dt;
+  for (int p = 0; p < 16; p++) {
+    if (!chase[p]) continue;
+    float d = tgtAngle[p] - cmdAngle[p];
+    if (fabsf(d) <= step) { writeServo(p, tgtAngle[p]); chase[p] = false; }
+    else writeServo(p, cmdAngle[p] + (d > 0 ? step : -step));
+  }
+}
+
+void sendTelemetry() {
+  uint8_t b[64];
+  uint16_t mask = 0, stm = 0;
+  int n = 6;
+  for (int p = 0; p < 16; p++) {
+    if (!cmdKnown[p]) continue;
+    mask |= 1 << p;
+    if (stalled[p]) stm |= 1 << p;
+    b[n++] = (uint8_t)constrain((int)lroundf(tgtAngle[p]), 0, 180);
+    b[n++] = (uint8_t)constrain((int)lroundf(cmdAngle[p]), 0, 180);
+    b[n++] = fbValid[p] ? (uint8_t)constrain((int)lroundf(actAngle[p]), 0, 180) : 255;
+  }
+  b[0] = MSG_TELEM;
+  b[1] = mask & 255; b[2] = mask >> 8;
+  b[3] = stm & 255;  b[4] = stm >> 8;
+  b[5] = (running ? 1 : 0) | (overloadLatched ? 2 : 0);
+  printTelemetry(b, n);${dual ? '\n  if (radioUp) esp_now_send(BCAST_MAC, b, n);' : ''}
+}
+
+// ================= sequence program =================
+// Steps: 1 = MOVE (duration u16, servo mask u16, one angle byte per servo in the mask)   2 = WAIT (ms u16)
+uint16_t crc16(const uint8_t *d, uint16_t n) {
+  uint16_t c = 0xFFFF;
+  for (uint16_t i = 0; i < n; i++) {
+    c ^= (uint16_t)d[i] << 8;
+    for (int b = 0; b < 8; b++) c = (c & 0x8000) ? (uint16_t)((c << 1) ^ 0x1021) : (uint16_t)(c << 1);
+  }
+  return c;
+}
+
+bool validateProgram() {   // walks the steps once so the player never reads outside the buffer
+  uint16_t i = 0;
+  int steps = 0;
+  while (i < progLen) {
+    uint8_t t = prog[i++];
+    if (t == 1) {
+      if (i + 4 > progLen) return false;
+      uint16_t mask = u16(prog + i + 2);
+      i += 4;
+      for (int p = 0; p < 16; p++) if (mask & (1 << p)) { if (i >= progLen || prog[i] > 180) return false; i++; }
+    } else if (t == 2) {
+      if (i + 2 > progLen) return false;
+      i += 2;
+    } else {
+      return false;
+    }
+    steps++;
+  }
+  progSteps = steps > 255 ? 255 : steps;
+  return progLen > 0;
+}
+
+void startProgram(bool loopIt) {
+  if (!progValid) return;
+  for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+  overloadLatched = false; overloadRetries = 0; retryPending = false; speedScale = 1.0f;
+  progLoop = loopIt; pc = 0; stepPc = 0; inMove = false; settling = false; waiting = false; running = true;
+  sendStatus(ST_RUN_START, progId, progLoop ? 1 : 0);
+}
+
+void stopProgram(bool report) {
+  running = false; inMove = false; settling = false; waiting = false; retryPending = false;
+  if (grpActive) {
+    for (int p = 0; p < 16; p++) if (grpMask & (1 << p)) { tgtAngle[p] = cmdAngle[p]; chase[p] = false; }
+    grpActive = false;
+    grpMask = 0;
+  }
+  if (report) sendStatus(ST_STOPPED, 0, 0);
+}
+
+bool progReceive(uint8_t id, uint8_t flags, uint16_t total, uint16_t crc, uint16_t off, const uint8_t *d, int len) {
+  if (off == 0) {
+    if (total == 0 || total > PROG_MAX) { sendStatus(ST_PROG_BAD, 1, 0); return false; }
+    stopProgram(false);
+    progId = id; progLen = total; progGot = 0; progCrc = crc; progValid = false;
+  } else if (id != progId || progLen == 0) {
+    sendStatus(ST_PROG_BAD, 3, 0);
+    return false;
+  }
+  if (off < progGot) return true;                 // duplicate: the sender retried
+  if (off > progGot) { sendStatus(ST_GAP, progGot & 255, progGot >> 8); return false; }
+  if ((uint32_t)off + len > progLen) { sendStatus(ST_PROG_BAD, 4, 0); return false; }
+  memcpy(prog + off, d, len);
+  progGot += len;
+  if (progGot == progLen) {
+    if (crc16(prog, progLen) != progCrc || !validateProgram()) { progValid = false; sendStatus(ST_PROG_BAD, 2, 0); return false; }
+    progValid = true;
+    sendStatus(ST_PROG_OK, progId, progSteps);
+    if (flags & 1) startProgram((flags & 2) != 0);
+  }
+  return true;
+}
+
+void programTick() {
+  if (!running) return;
+  uint32_t now = millis();
+  if (retryPending) {
+    if ((int32_t)(now - retryAt) < 0) return;
+    retryPending = false;
+    for (int p = 0; p < 16; p++) { stalled[p] = false; errSince[p] = 0; }
+    pc = stepPc; inMove = false; settling = false; waiting = false;
+  }
+  if (inMove) {
+    if (grpActive) return;
+    if (!settling) { settling = true; settleUntil = now + STALL_MS + 300; }   // let feedback servos catch up so an overload is noticed before the next step
+    if ((int32_t)(now - settleUntil) < 0) {
+      bool ok = true;
+      for (int p = 0; p < 16; p++) if ((stepMask & (1 << p)) && fbValid[p] && !stalled[p] && fabsf(cmdAngle[p] - actAngle[p]) > STALL_ERR_DEG * 0.5f) ok = false;
+      if (!ok) return;
+    }
+    inMove = false;
+    settling = false;
+  }
+  if (waiting) { if ((int32_t)(now - waitUntil) < 0) return; waiting = false; }
+  if (pc >= progLen) {
+    if (progLoop) {
+      pc = 0;
+    } else {
+      running = false;
+      sendStatus(ST_RUN_END, progId, 0);
+      return;
+    }
+  }
+  stepPc = pc;
+  uint8_t t = prog[pc++];
+  if (t == 1) {
+    uint16_t dur = u16(prog + pc);
+    uint16_t mask = u16(prog + pc + 2);
+    pc += 4;
+    for (int p = 0; p < 16; p++) if (mask & (1 << p)) tgtAngle[p] = prog[pc++];
+    stepMask = mask;
+    startGroup(mask, dur);
+    inMove = true;
+  } else if (t == 2) {
+    waitUntil = now + u16(prog + pc);
+    pc += 2;
+    waiting = true;
+  } else {
+    running = false;
+    sendStatus(ST_PROG_BAD, 9, 0);
+  }
+}
+
+void ctrlCommand(uint8_t id, int arg) {
+  switch (id) {
+    case 1: telemetryOn = (arg != 0); break;
+    case 2: progLoop = (arg != 0); break;
+    case 4: clearOverload(); break;
+    case 5: speedScale = constrain(arg, 10, 100) / 100.0f; break;
+  }
+}
+
+// a servo command from the user interrupts a running program
+void liveTarget(int pin, float angle) {
+  if (running) stopProgram(true);
+  setTarget(pin, angle);
+}
+
+void applyPending() {   // commands that arrived by radio: a batch moves together, singles chase
+  uint16_t batch = pendingBatch;
+  pendingBatch = 0;
+  uint16_t groupMask = 0;
+  for (int p = 0; p < 16; p++) {
+    int a = pendingAngle[p];
+    if (a < 0) continue;
+    pendingAngle[p] = -1;
+    if (batch & (1 << p)) {
+      if (stalled[p]) continue;
+      tgtAngle[p] = constrain((float)a, (float)LIM_MIN[p], (float)LIM_MAX[p]);
+      groupMask |= 1 << p;
+    } else {
+      liveTarget(p, a);
+    }
+  }
+  if (groupMask) {
+    if (running) stopProgram(true);
+    startGroup(groupMask, 0);
+  }
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+int decodeHex(const char *h, uint8_t *out, int maxLen) {
+  int n = 0;
+  while (h[0] && h[1] && n < maxLen) {
+    int a = hexNibble(h[0]), b = hexNibble(h[1]);
+    if (a < 0 || b < 0) break;
+    out[n++] = (uint8_t)((a << 4) | b);
+    h += 2;
+  }
+  return n;
+}
+
+void handlePU(const String &s) {   // "PU <id> <flags> <total> <crc> <offset> <hex>"
+  int id = 0, flags = 0, total = 0, crc = 0, off = 0, used = 0;
+  if (sscanf(s.c_str() + 3, "%d %d %d %d %d %n", &id, &flags, &total, &crc, &off, &used) < 5 || used <= 0) {
+    Serial.println("ERR PU format");
+    return;
+  }
+  uint8_t buf[CHUNK_BYTES + 8];
+  int n = decodeHex(s.c_str() + 3 + used, buf, CHUNK_BYTES + 8);
+  if (n > 0 && progReceive((uint8_t)id, (uint8_t)flags, (uint16_t)total, (uint16_t)crc, (uint16_t)off, buf, n)) Serial.printf("OK PU %d\n", off);
+  else Serial.printf("ERR PU %d\n", off);
+}
+
+// Feedback calibration: drives the servo to its limits (keep the leg free, no load) and reports the readings.
+void fbCalibrate(int pin) {
+  if (pin < 0 || pin > 15 || FB_PIN[pin] < 0) { Serial.println("ERR fbcal: no feedback pin for this servo in the config"); return; }
+  Serial.printf("FBCAL running on pin %d, keep the leg free...\n", pin);
+  if (running) stopProgram(true);
+  writeServo(pin, (float)LIM_MIN[pin]);
+  delay(1500);
+  float rawLo = readRaw(pin);
+  writeServo(pin, (float)LIM_MAX[pin]);
+  delay(1500);
+  float rawHi = readRaw(pin);
+  Serial.printf("FBCAL %d %d %.0f %d %.0f\n", pin, LIM_MIN[pin], rawLo, LIM_MAX[pin], rawHi);
+  writeServo(pin, (LIM_MIN[pin] + LIM_MAX[pin]) / 2.0f);
+  tgtAngle[pin] = cmdAngle[pin];
+  chase[pin] = false;
+}`,
+dual ? String.raw`// ================= radio =================
+const uint8_t CONTROLLER_MAC[6] = {${macBytes(e.ctrlMac)}};   // all 00 = accept commands from any sender
+#define RXQ 6
+struct RxPkt {
+  uint8_t len;
+  uint8_t d[CHUNK_BYTES + 12];
+};
+RxPkt rxq[RXQ];
+volatile uint8_t rxHead = 0, rxTail = 0;
+portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
+
+bool senderAllowed(const uint8_t *src) {
+  for (int i = 0; i < 6; i++) if (CONTROLLER_MAC[i]) return memcmp(src, CONTROLLER_MAC, 6) == 0;
+  return true;
+}
+
+// Radio callback: only stores things. loop() does the work, so the I2C bus is never used from two tasks.
+void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len < 2 || len > (int)sizeof(rxq[0].d)) return;
+  if (info != nullptr && info->src_addr != nullptr && !senderAllowed(info->src_addr)) return;
+  if (len == 2) {                                   // one servo: pin, angle
+    if (data[0] > 15 || data[1] > 180) return;
+    pendingAngle[data[0]] = data[1];
+    return;
+  }
+  uint8_t t = data[0];
+  if (t == CMD_BATCH) {                             // several servos in one packet
+    uint16_t mask = data[1] | (data[2] << 8);
+    int n = 3;
+    for (int p = 0; p < 16; p++) {
+      if (!(mask & (1 << p))) continue;
+      if (n >= len) break;
+      if (data[n] <= 180) pendingAngle[p] = data[n];
+      n++;
+    }
+    pendingBatch |= mask;
+  } else if (t == CMD_PROG || t == CMD_STOP || t == CMD_CTRL) {
+    portENTER_CRITICAL(&rxMux);
+    uint8_t nx = (rxHead + 1) % RXQ;
+    if (nx != rxTail) {
+      memcpy(rxq[rxHead].d, data, len);
+      rxq[rxHead].len = len;
+      rxHead = nx;
+    }
+    portEXIT_CRITICAL(&rxMux);
+  }
+}
+
+void processRx() {
+  while (true) {
+    RxPkt p;
+    bool have;
+    portENTER_CRITICAL(&rxMux);
+    have = (rxTail != rxHead);
+    if (have) { p = rxq[rxTail]; rxTail = (rxTail + 1) % RXQ; }
+    portEXIT_CRITICAL(&rxMux);
+    if (!have) return;
+    if (p.d[0] == CMD_PROG && p.len > 9) progReceive(p.d[1], p.d[2], u16(p.d + 3), u16(p.d + 5), u16(p.d + 7), p.d + 9, p.len - 9);
+    else if (p.d[0] == CMD_STOP) stopProgram(true);
+    else if (p.d[0] == CMD_CTRL && p.len >= 3) ctrlCommand(p.d[1], p.d[2]);
+  }
+}
+` : '',
+String.raw`void handleLine(String s) {
+  s.trim();
+  if (s == "?" || s == "hello") {
+    printHello();
+    return;
+  }${fu ? `
+  if (s == "g") {
+    calibrateGyro();
+    lastFusionUs = micros();
+    return;
+  }
+  if (s == "m 1" || s == "m 0") {
+    magStream = (s == "m 1");
+    Serial.printf("FUSION mag stream %d\\n", magStream ? 1 : 0);
+    return;
+  }
+  if (s.startsWith("o ")) {   // "o x y z": compass offsets until reboot
+    float ox, oy, oz;
+    if (sscanf(s.c_str() + 2, "%f %f %f", &ox, &oy, &oz) == 3) {
+      magOffX = ox; magOffY = oy; magOffZ = oz;
+      Serial.printf("FUSION offsets %.1f %.1f %.1f\\n", ox, oy, oz);
+    }
+    return;
+  }` : ''}
+  if (s.startsWith("PU ")) { handlePU(s); return; }
+  if (s == "PS") {
+    stopProgram(true);
+    Serial.println("OK PS");
+    return;
+  }
+  if (s.startsWith("c ")) {
+    int cid = 0, arg = 0;
+    if (sscanf(s.c_str() + 2, "%d %d", &cid, &arg) >= 1) ctrlCommand((uint8_t)cid, arg);
+    Serial.printf("OK c %d\n", cid);
+    return;
+  }
+  if (s.startsWith("fbcal ")) { fbCalibrate(s.substring(6).toInt()); return; }
+  if (s.startsWith("fbset ")) {   // "fbset <pin> <raw0> <raw180>": use new calibration until reboot
+    int fp = 0; float r0 = 0, r1 = 0;
+    if (sscanf(s.c_str() + 6, "%d %f %f", &fp, &r0, &r1) == 3 && fp >= 0 && fp < 16) {
+      fbRaw0[fp] = r0; fbRaw180[fp] = r1;
+      Serial.printf("OK fbset %d\n", fp);
+    }
+    return;
+  }
+  if (s.startsWith("s ")) {   // local USB command: "s 0 90"
+    int sp = s.indexOf(' ', 2);
+    if (sp > 0) liveTarget(s.substring(2, sp).toInt(), (float)s.substring(sp + 1).toInt());
+  }
+}`,
+String.raw`void setup() {
+  Serial.setRxBufferSize(2048);   // program chunks are long lines
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("\nROBOT BOOTING");
+  for (int i = 0; i < 16; i++) { pendingAngle[i] = -1; cmdKnown[i] = false; chase[i] = false; fbValid[i] = false; stalled[i] = false; errSince[i] = 0; tgtAngle[i] = 90; cmdAngle[i] = 90; lastTicks[i] = -1; }
+
+  Wire.setPins(SDA_PIN, SCL_PIN);
+  if (!pwm.begin()) Serial.println("ERR PCA9685 not detected");
+  else Serial.println("PCA9685 OK");
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);
+  delay(10);
+  if (FB_COUNT > 0) {
+    analogReadResolution(12);
+    for (int p = 0; p < 16; p++) if (FB_PIN[p] >= 0) { pinMode(FB_PIN[p], INPUT); analogSetPinAttenuation(FB_PIN[p], ADC_11db); }
+    readFeedback();
+    readFeedback();
+  }
+${fu ? '\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}${dual ? String.raw`
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("ERR WiFi STA mode failed");
+    return;
+  }
+  delay(100);
+  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  LOG("Set channel %d: %d (%s)\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
+
+  err = esp_now_init();
+  if (err != ESP_OK) {
+    Serial.printf("ERR ESP-NOW init: %d (%s)\n", err, esp_err_to_name(err));
+    return;
+  }
+  esp_now_register_recv_cb(onRecv);
+
+  esp_now_peer_info_t bp = {};   // broadcast peer: status, telemetry${fu ? ' and orientation' : ''} go to the controller
+  memcpy(bp.peer_addr, BCAST_MAC, 6);
+  bp.channel = ESPNOW_CHANNEL;
+  bp.ifidx = WIFI_IF_STA;
+  bp.encrypt = false;
+  err = esp_now_add_peer(&bp);
+  if (err != ESP_OK) Serial.printf("ERR add broadcast peer: %d (%s)\n", err, esp_err_to_name(err));
+  radioUp = (err == ESP_OK);
+  LOG("ESP-NOW ready\n");
+` : ''}
+  printHello();
+  Serial.println("ROBOT READY");
+}`,
+String.raw`${READ_SERIAL}
+
+void loop() {
+  readSerial();${dual ? '\n  processRx();' : ''}
+  applyPending();
+  motionTick();
+  programTick();
+  if (telemetryOn && millis() - lastTelMs >= 100) {
+    lastTelMs = millis();
+    sendTelemetry();
+  }${fu ? `
+  streamMag('r');
+  if (updateFusion() && ++fusionTick >= FUSION_EVERY) {
+    fusionTick = 0;
+    printQuat('r');${dual ? '\n    sendQuat();' : ''}
+  }` : ''}
+}`];
+  return sections.filter(s => s !== '').join('\n\n') + '\n';
+}
+
+function controllerFirmware() {
+  const c = currentConfig('current'), e = c.esp, f = c.fw, fu = f.ctrlFusion;
+  const id = cfgId(1, c);
+  const inc = ['#include <WiFi.h>', '#include <esp_now.h>', '#include <esp_wifi.h>', '#include <esp_err.h>',
+    '#include <esp_mac.h>', '#include <string.h>', ...(fu ? ['#include <Wire.h>', FUSION_INCLUDES] : [])].join('\n');
+
+  const sections = [
+String.raw`/*
+ * Controller Firmware - ESP32 Arduino core 3.x - DEVICE MODE 1 (CONTROLLER)
+ * Generated by PCA9685 Control Studio.
+ * Plug this board into your PC. Web commands are forwarded to the robot over ESP-NOW:
+ * servo commands are batched into single packets, and whole sequences are uploaded in a few acknowledged chunks.
+ * It also forwards the robot's status, servo telemetry and orientation to the web page${fu ? ', and streams its own orientation (MPU6050 + compass)' : ''}.
+${fu ? ' * Libraries: "Adafruit MPU6050", "Adafruit Unified Sensor", "Adafruit AHRS"\n' : ''} * Serial (115200):  s <pin> <angle>   PU ... (program chunk)   PS (stop)   c <id> <arg>   ?${fu ? '   f 1|0   g   m 1|0   o x y z' : ''}
+ */`,
+inc,
+String.raw`${commonDefs(1, 'CONTROLLER', id, f.ctrlVerbose)}
+#define ESPNOW_CHANNEL ${e.channel}${fu ? `\n#define SDA_PIN ${e.csda}\n#define SCL_PIN ${e.cscl}` : ''}
+
+// Must match the ROBOT's MAC (shown when you connect to the robot).
+const uint8_t ROBOT_MAC[6] = {${macBytes(e.robotMac)}};   // ${e.robotMac}
+
+struct __attribute__((packed)) ImuMsg {   // robot -> controller telemetry
+  uint8_t type;
+  float w, x, y, z;
+};
+
+String line;
+bool streaming = false;                 // this board's orientation stream (switched from the web page)
+ImuMsg robotImu;                        // newest quaternion received from the robot
+volatile bool robotImuNew = false;
+uint8_t telBuf[64];                     // newest servo telemetry from the robot
+volatile int telLen = 0;
+uint8_t stq[8][3];                      // robot status events waiting to be printed
+volatile uint8_t stHead = 0, stTail = 0;
+portMUX_TYPE rxMux = portMUX_INITIALIZER_UNLOCKED;
+volatile int sendState = 0;             // 0 = waiting, 1 = delivered, 2 = failed (set by the send callback)
+int16_t pendAngle[16];                  // servo commands collected for the next batch packet (-1 = none)
+uint32_t lastFlushMs = 0, lastFailMs = 0;`,
+PROTO_DEFS,
+fu ? fusionBlock(f.ctrlMag) : '',
+helloFn(fu, 'streaming ? 1 : 0', '0'),
+TELEM_PRINT,
+String.raw`void onSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  sendState = (status == ESP_NOW_SEND_SUCCESS) ? 1 : 2;
+}
+
+// Radio callback: only stores what the robot sent. loop() prints it for the web page.
+void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+  if (len < 4) return;
+  if (info != nullptr && info->src_addr != nullptr && memcmp(info->src_addr, ROBOT_MAC, 6) != 0) return;
+  if (data[0] == MSG_IMU && len == sizeof(ImuMsg)) {
+    memcpy(&robotImu, data, sizeof(ImuMsg));
+    robotImuNew = true;
+  } else if (data[0] == MSG_STATUS && len == 4) {
+    portENTER_CRITICAL(&rxMux);
+    uint8_t nx = (stHead + 1) % 8;
+    if (nx != stTail) { stq[stHead][0] = data[1]; stq[stHead][1] = data[2]; stq[stHead][2] = data[3]; stHead = nx; }
+    portEXIT_CRITICAL(&rxMux);
+  } else if (data[0] == MSG_TELEM && len <= (int)sizeof(telBuf)) {
+    portENTER_CRITICAL(&rxMux);
+    memcpy(telBuf, data, len);
+    telLen = len;
+    portEXIT_CRITICAL(&rxMux);
+  }
+}
+
+// Sends one packet to the robot and waits for the radio acknowledgement, retrying a few times.
+bool sendReliable(const uint8_t *buf, size_t len, int tries) {
+  for (int t = 0; t < tries; t++) {
+    sendState = 0;
+    esp_err_t err = esp_now_send(ROBOT_MAC, buf, len);
+    if (err == ESP_OK) {
+      uint32_t t0 = millis();
+      while (sendState == 0 && millis() - t0 < 25) delay(1);
+      if (sendState == 1) return true;
+    } else {
+      delay(5);
+    }
+  }
+  if (lastFailMs == 0 || millis() - lastFailMs > 1000) {   // do not flood the log when the robot is off
+    lastFailMs = millis() + 1;
+    Serial.println("ESP-NOW delivery: FAIL");
+  }
+  return false;
+}
+
+// Servo commands that arrive close together leave as ONE packet, so the radio is never flooded
+// and the robot moves all of those servos together.
+void queueServo(int pin, int angle) {
+  if (pin < 0 || pin > 15) { Serial.println("ERR invalid pin"); return; }
+  pendAngle[pin] = constrain(angle, 0, 180);
+}
+
+void flushServos() {
+  if (millis() - lastFlushMs < 15) return;
+  uint8_t buf[3 + 16];
+  uint16_t mask = 0;
+  int n = 3;
+  for (int p = 0; p < 16; p++) if (pendAngle[p] >= 0) { mask |= 1 << p; buf[n++] = (uint8_t)pendAngle[p]; }
+  if (!mask) return;
+  lastFlushMs = millis();
+  buf[0] = CMD_BATCH; buf[1] = mask & 255; buf[2] = mask >> 8;
+  bool ok = sendReliable(buf, n, 3);
+  for (int p = 0; p < 16; p++) pendAngle[p] = -1;   // stale commands are dropped, never sent late
+  if (ok) LOG("Sent batch mask 0x%04X\n", mask);
+}
+
+int hexNibble(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+int decodeHex(const char *h, uint8_t *out, int maxLen) {
+  int n = 0;
+  while (h[0] && h[1] && n < maxLen) {
+    int a = hexNibble(h[0]), b = hexNibble(h[1]);
+    if (a < 0 || b < 0) break;
+    out[n++] = (uint8_t)((a << 4) | b);
+    h += 2;
+  }
+  return n;
+}
+
+// "PU <id> <flags> <total> <crc> <offset> <hex>": one chunk of a sequence program, forwarded to the robot
+void forwardProgram(const String &s) {
+  int id = 0, flags = 0, total = 0, crc = 0, off = 0, used = 0;
+  if (sscanf(s.c_str() + 3, "%d %d %d %d %d %n", &id, &flags, &total, &crc, &off, &used) < 5 || used <= 0) {
+    Serial.println("ERR PU format");
+    return;
+  }
+  uint8_t pkt[9 + CHUNK_BYTES];
+  int n = decodeHex(s.c_str() + 3 + used, pkt + 9, CHUNK_BYTES);
+  if (n <= 0) { Serial.printf("ERR PU %d\n", off); return; }
+  pkt[0] = CMD_PROG; pkt[1] = (uint8_t)id; pkt[2] = (uint8_t)flags;
+  pkt[3] = total & 255; pkt[4] = total >> 8;
+  pkt[5] = crc & 255;   pkt[6] = crc >> 8;
+  pkt[7] = off & 255;   pkt[8] = off >> 8;
+  if (sendReliable(pkt, 9 + n, 4)) Serial.printf("OK PU %d\n", off);
+  else Serial.printf("ERR PU %d\n", off);
+}`,
+String.raw`void handleLine(String s) {
+  s.trim();
+  if (s == "?" || s == "hello") {
+    printHello();
+    return;
+  }${fu ? `
+  if (s == "f 1" || s == "f 0") {
+    streaming = (s == "f 1");
+    if (streaming) { lastFusionUs = micros(); fusionTick = 0; }
+    Serial.printf("FUSION stream %d\\n", streaming ? 1 : 0);
+    return;
+  }
+  if (s == "g") {
+    calibrateGyro();
+    lastFusionUs = micros();
+    return;
+  }
+  if (s == "m 1" || s == "m 0") {
+    magStream = (s == "m 1");
+    Serial.printf("FUSION mag stream %d\\n", magStream ? 1 : 0);
+    return;
+  }
+  if (s.startsWith("o ")) {   // "o x y z": compass offsets until reboot
+    float ox, oy, oz;
+    if (sscanf(s.c_str() + 2, "%f %f %f", &ox, &oy, &oz) == 3) {
+      magOffX = ox; magOffY = oy; magOffZ = oz;
+      Serial.printf("FUSION offsets %.1f %.1f %.1f\\n", ox, oy, oz);
+    }
+    return;
+  }` : `
+  if (s.startsWith("f ") || s == "g" || s == "m 1" || s == "m 0" || s.startsWith("o ")) {
+    Serial.println("ERR sensor fusion is not built into this firmware");
+    return;
+  }`}
+  if (s.startsWith("PU ")) { forwardProgram(s); return; }
+  if (s == "PS") {
+    uint8_t b[1] = { CMD_STOP };
+    Serial.println(sendReliable(b, 1, 4) ? "OK PS" : "ERR PS");
+    return;
+  }
+  if (s.startsWith("c ")) {   // "c <id> <arg>": telemetry on/off, loop, clear overload, speed
+    int cid = 0, arg = 0;
+    if (sscanf(s.c_str() + 2, "%d %d", &cid, &arg) >= 1) {
+      uint8_t b[3] = { CMD_CTRL, (uint8_t)cid, (uint8_t)arg };
+      sendReliable(b, 3, 3);
+    }
+    return;
+  }
+  if (s.startsWith("fbcal") || s.startsWith("fbset")) {
+    Serial.println("ERR connect to the robot directly for feedback calibration");
+    return;
+  }
+  if (s.startsWith("s ")) {
+    int sp = s.indexOf(' ', 2);
+    if (sp > 0) queueServo(s.substring(2, sp).toInt(), s.substring(sp + 1).toInt());
+    else Serial.println("ERR format: s <pin> <angle>");
+  }
+}`,
+String.raw`void setup() {
+  Serial.setRxBufferSize(2048);   // program chunks are long lines
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\nCONTROLLER BOOTING");
+  for (int i = 0; i < 16; i++) pendAngle[i] = -1;
+${fu ? '\n  Wire.setPins(SDA_PIN, SCL_PIN);\n  initFusion();\n  Wire.setClock(I2C_CLOCK);\n' : ''}
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("ERR WiFi STA mode failed");
+    return;
+  }
+  delay(100);
+  esp_err_t err = esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  LOG("Set channel %d: %d (%s)\n", ESPNOW_CHANNEL, err, esp_err_to_name(err));
+
+  err = esp_now_init();
+  if (err != ESP_OK) {
+    Serial.printf("ERR ESP-NOW init: %d (%s)\n", err, esp_err_to_name(err));
+    return;
+  }
+  esp_now_register_send_cb(onSent);
+  esp_now_register_recv_cb(onRecv);
+
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, ROBOT_MAC, 6);
+  peer.channel = ESPNOW_CHANNEL;
+  peer.ifidx = WIFI_IF_STA;
+  peer.encrypt = false;
+  err = esp_now_add_peer(&peer);
+  if (err == ESP_ERR_ESPNOW_EXIST) LOG("ESP-NOW peer already exists\n");
+  else if (err != ESP_OK) Serial.printf("ERR add peer: %d (%s)\n", err, esp_err_to_name(err));
+  else LOG("ESP-NOW PEER OK\n");
+
+  printHello();
+  Serial.println("CONTROLLER READY");
+}`,
+String.raw`${READ_SERIAL}
+
+void loop() {
+  readSerial();
+  flushServos();
+  if (robotImuNew) {   // forward what the robot sent to the web page
+    robotImuNew = false;
+    Serial.printf("Q r %.4f %.4f %.4f %.4f\n", robotImu.w, robotImu.x, robotImu.y, robotImu.z);
+  }
+  while (stTail != stHead) {
+    uint8_t ev[3];
+    portENTER_CRITICAL(&rxMux);
+    memcpy(ev, stq[stTail], 3);
+    stTail = (stTail + 1) % 8;
+    portEXIT_CRITICAL(&rxMux);
+    Serial.printf("RSTAT %d %d %d\n", ev[0], ev[1], ev[2]);
+  }
+  if (telLen > 0) {
+    uint8_t tb[64];
+    int tl;
+    portENTER_CRITICAL(&rxMux);
+    tl = telLen;
+    memcpy(tb, telBuf, tl);
+    telLen = 0;
+    portEXIT_CRITICAL(&rxMux);
+    printTelemetry(tb, tl);
+  }${fu ? `
+  streamMag('c');
+  if (streaming && updateFusion() && ++fusionTick >= FUSION_EVERY) {
+    fusionTick = 0;
+    printQuat('c');
+  }` : ''}
+}`];
+  return sections.filter(s => s !== '').join('\n\n') + '\n';
+}
+
+function copyCode(which) {
+  const text = which === 'ctrl' ? controllerFirmware() : robotFirmware();
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  logTerminal((which === 'ctrl' ? 'Controller' : 'Robot') + ' firmware copied to clipboard.');
+}
+
+// ---------- firmware options (Settings) ----------
+function setFw(key, val) {
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[key] = !!val;
+  try { cfg.fw = normFw(next); logTerminal(`Firmware option ${key} = ${cfg.fw[key]}`); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setMag(board, i, val) {
+  const k = board === 'r' ? 'robotMag' : 'ctrlMag';
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[k][i] = val;
+  try { cfg.fw = normFw(next); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function renderFw() {
+  const f = cfg.fw;
+  $('fw-robot-verbose').checked = f.robotVerbose;  $('fw-robot-fusion').checked = f.robotFusion;
+  $('fw-ctrl-verbose').checked = f.ctrlVerbose;    $('fw-ctrl-fusion').checked = f.ctrlFusion;
+  for (let i = 0; i < 3; i++) { $('fw-rmag-' + i).value = f.robotMag[i]; $('fw-cmag-' + i).value = f.ctrlMag[i]; }
+  $('esp-csda').value = cfg.esp.csda; $('esp-cscl').value = cfg.esp.cscl;
+  $('ctrl-i2c-card').classList.toggle('hidden', !f.ctrlFusion);
+}
+
+// ---------- sensor fusion display (3D orientation) ----------
+// The firmware prints "Q <r|c> w x y z" lines: r = robot IMU, c = controller IMU.
+const mkF = () => ({ q: null, t: 0, n: 0, n0: 0, hz: 0, ref: null });
+const fusion = { r: mkF(), c: mkF() };
+let fusionView = 'both', fusionInv = { x: false, y: false, z: false }, fusionWant = true, fusionHzAt = 0, fusionTextAt = 0;
+const SRC_NAME = { r: '🤖 Robot', c: '🎮 Controller' };
+
+const qmul = (a, b) => [
+  a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+  a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+  a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]];
+const qconj = (a) => [a[0], -a[1], -a[2], -a[3]];
+const qnorm = (q) => { const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return q.map(x => x / n); };
+function qrot(q, v) { const r = qmul(qmul(q, [0, v[0], v[1], v[2]]), qconj(q)); return [r[1], r[2], r[3]]; }
+function euler(q) {
+  const [w, x, y, z] = q;
+  return { roll: Math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)),
+           pitch: Math.asin(clamp(2 * (w * y - z * x), -1, 1)),
+           yaw: Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) };
+}
+const flipq = (q) => [q[0], fusionInv.x ? -q[1] : q[1], fusionInv.y ? -q[2] : q[2], fusionInv.z ? -q[3] : q[3]];
+function displayQuat(f) {
+  if (!f.q) return null;
+  let q = qnorm(flipq(f.q));
+  if (f.ref) q = qnorm(qmul(qconj(qnorm(flipq(f.ref))), q));
+  return q;
+}
+
+function handleQuatLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 6 || !fusion[p[1]]) return;
+  const q = p.slice(2, 6).map(parseFloat);
+  if (q.some(x => !isFinite(x))) return;
+  const f = fusion[p[1]];
+  f.q = q; f.t = performance.now(); f.n++;
+}
+
+function setFusionView(v) {
+  fusionView = v;
+  ['r', 'c', 'both'].forEach(k => $('fs-' + k).className = k === v ? 'on' : '');
+}
+function setFusionInvert(axis, on) { fusionInv[axis] = on; }
+function zeroView() { ['r', 'c'].forEach(k => { if (fusion[k].q) fusion[k].ref = fusion[k].q.slice(); }); logTerminal('Orientation view zeroed.'); }
+function clearZero() { fusion.r.ref = null; fusion.c.ref = null; }
+
+function fusionControlsState() {
+  const d = deviceInfo, on = !!(serialPort && d && d.fusion === 1);
+  const ctrl = on && d.mode === 1;
+  $('fusion-stream').disabled = !ctrl;
+  $('fusion-stream').checked = ctrl ? fusionWant : false;
+  $('fusion-calib').disabled = !on;
+  $('fusion-hint').textContent = !serialPort ? 'Connect WebSerial to a board to receive orientation data.'
+    : !d ? 'Waiting for the board to identify itself...'
+    : d.fusion === 0 ? 'This board\'s firmware has no sensor fusion built in (Settings → Firmware options).'
+    : d.fusion === 2 ? 'This board could not find its MPU6050. Check the wiring (SDA/SCL, 3.3V, GND).'
+    : d.mode === 0 ? 'Connected to the robot: it streams its orientation automatically (set in the firmware).'
+    : 'Connected to the controller: the robot\'s orientation is forwarded; switch on the controller\'s own stream here.';
+}
+function toggleFusionStream(on) {
+  fusionWant = on;
+  if (serialPort && deviceInfo && deviceInfo.mode === 1 && deviceInfo.fusion === 1) sendRaw(`f ${on ? 1 : 0}\n`);
+}
+function calibrateGyro() { sendRaw('g\n'); logTerminal('Gyro calibration requested: keep the board still for 2 seconds.'); }
+
+// camera: world Z is up
+const VIEW = { az: -0.6, el: 0.5 };
+function project(v, cx, cy, s) {
+  const ca = Math.cos(VIEW.az), sa = Math.sin(VIEW.az), ce = Math.cos(VIEW.el), se = Math.sin(VIEW.el);
+  const x1 = v[0] * ca - v[1] * sa, y1 = v[0] * sa + v[1] * ca;
+  const up = v[2] * ce + y1 * se, depth = y1 * ce - v[2] * se;
+  const k = 7 / (7 + depth);
+  return [cx + x1 * s * k, cy - up * s * k, depth];
+}
+function drawModel(ctx, q, cx, cy, s, label, top) {
+  // ground grid
+  ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    const a = project([i * 0.6, -1.8, -0.9], cx, cy, s), b = project([i * 0.6, 1.8, -0.9], cx, cy, s);
+    const c = project([-1.8, i * 0.6, -0.9], cx, cy, s), d = project([1.8, i * 0.6, -0.9], cx, cy, s);
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.stroke();
+  }
+  const hx = 1.1, hy = 0.65, hz = 0.14;
+  const V = [[-hx, -hy, -hz], [hx, -hy, -hz], [hx, hy, -hz], [-hx, hy, -hz], [-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz]];
+  const P = V.map(v => project(qrot(q, v), cx, cy, s));
+  const faces = [[0, 1, 2, 3, '#1e3a5f'], [4, 5, 6, 7, top], [1, 2, 6, 5, '#f59e0b'], [0, 3, 7, 4, '#334155'], [0, 1, 5, 4, '#475569'], [3, 2, 6, 7, '#475569']];
+  faces.map(f => ({ f, d: (P[f[0]][2] + P[f[1]][2] + P[f[2]][2] + P[f[3]][2]) / 4 })).sort((a, b) => b.d - a.d).forEach(({ f }) => {
+    ctx.beginPath(); ctx.moveTo(P[f[0]][0], P[f[0]][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(P[f[i]][0], P[f[i]][1]);
+    ctx.closePath(); ctx.globalAlpha = 0.92; ctx.fillStyle = f[4]; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(226,232,240,.55)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  const o = project([0, 0, 0], cx, cy, s);
+  [[[1.7, 0, 0], '#ef4444', 'X'], [[0, 1.3, 0], '#22c55e', 'Y'], [[0, 0, 1.3], '#3b82f6', 'Z']].forEach(([dir, col, nm]) => {
+    const e = project(qrot(q, dir), cx, cy, s);
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = 'bold 12px system-ui,sans-serif'; ctx.fillText(nm, e[0] + 4, e[1] - 4);
+  });
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '600 13px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(label, cx, cy + s * 1.9); ctx.textAlign = 'left';
+}
+
+function drawFusion(now) {
+  requestAnimationFrame(drawFusion);
+  if ($('tab-gui').classList.contains('hidden')) return;
+  const cv = $('fusion-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, r.height);
+
+  if (now - fusionHzAt > 1000) {
+    ['r', 'c'].forEach(k => { fusion[k].hz = Math.round((fusion[k].n - fusion[k].n0) * 1000 / Math.max(1, now - fusionHzAt)); fusion[k].n0 = fusion[k].n; });
+    fusionHzAt = now;
+  }
+  const live = (k) => fusion[k].q && now - fusion[k].t < 1500;
+  const show = fusionView === 'both' ? ['r', 'c'] : [fusionView];
+  const s = Math.min(r.width / show.length / 3.2, r.height / 3.6);
+  show.forEach((k, i) => {
+    const cx = r.width * (i + 0.5) / show.length, cy = r.height * 0.46;
+    const q = displayQuat(fusion[k]);
+    if (!q) {
+      ctx.fillStyle = '#64748b'; ctx.font = '13px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${SRC_NAME[k]}: no data yet`, cx, cy); ctx.textAlign = 'left';
+    } else {
+      ctx.globalAlpha = live(k) ? 1 : 0.45;
+      drawModel(ctx, q, cx, cy, s, SRC_NAME[k] + (live(k) ? '' : ' (stale)'), k === 'r' ? '#0ea5e9' : '#a855f7');
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  if (now - fusionTextAt > 100) {
+    fusionTextAt = now;
+    const deg = (x) => (x * 180 / Math.PI).toFixed(1).padStart(6) + '°';
+    $('fusion-readout').innerHTML = ['r', 'c'].map(k => {
+      const f = fusion[k], q = displayQuat(f), lv = live(k);
+      let eu = '';
+      if (q) { const e = euler(q); eu = `<div class="kv"><span class="mute">yaw / pitch / roll</span><span>${deg(e.yaw)} ${deg(e.pitch)} ${deg(e.roll)}</span></div>
+        <div class="kv"><span class="mute">quaternion</span><span>${f.q.map(x => x.toFixed(3)).join(' ')}</span></div>`; }
+      return `<div class="stack"><b class="sm">${SRC_NAME[k]} <span class="${lv ? 'green' : 'dim'}">● ${lv ? f.hz + ' Hz' : 'no data'}</span></b>${eu}</div>`;
+    }).join('');
+    fusionControlsState();
+  }
+}
+function startFusionLoop() { requestAnimationFrame(drawFusion); requestAnimationFrame(drawCalibration); requestAnimationFrame(drawMonitor); }
+
+// ---------- calibration (gyro + compass) ----------
+// The firmware streams "M <r|c> x y z" (compass values before the offsets are subtracted).
+// Rotating the board through every orientation draws a sphere; its centre is the hard-iron offset.
+const cal = { active: false, x: [], y: [], z: [], src: '', n: 0, n0: 0, hz: 0, gyro: 'idle', hzAt: 0, textAt: 0, saved: null };
+const CAL_MAX = 5000;
+
+function handleMagLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 5 || !cal.active) return;
+  const v = [parseFloat(p[2]), parseFloat(p[3]), parseFloat(p[4])];
+  if (v.some(x => !isFinite(x))) return;
+  cal.src = p[1]; cal.n++;
+  if (cal.x.length < CAL_MAX) { cal.x.push(v[0]); cal.y.push(v[1]); cal.z.push(v[2]); }
+  else { const i = Math.floor(Math.random() * CAL_MAX); cal.x[i] = v[0]; cal.y[i] = v[1]; cal.z[i] = v[2]; }
+}
+
+function calReady() {
+  if (!serialPort) return { ok: false, msg: 'Connect WebSerial to the board you want to calibrate first.' };
+  if (!deviceInfo) return { ok: false, msg: 'Waiting for the board to identify itself...' };
+  if (deviceInfo.fusion !== 1) return { ok: false, msg: deviceInfo.fusion === 2 ? 'This board could not find its MPU6050.' : 'This firmware has no sensor fusion built in (Settings → Firmware options).' };
+  if (!deviceInfo.compass) return { ok: false, msg: 'The board did not find the compass (address 0x2C). Check its wiring, then reboot the board.' };
+  return { ok: true, msg: '' };
+}
+const calBoard = () => (deviceInfo && deviceInfo.mode === 1 ? 'c' : 'r');
+const pctile = (arr, p) => { const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))]; };
+
+function calStats() {
+  const n = cal.x.length;
+  if (n < 2) return null;
+  const ax = [cal.x, cal.y, cal.z];
+  const lo = ax.map(a => (n >= 50 ? pctile(a, 0.01) : Math.min(...a)));     // 1%..99% ignores single spikes
+  const hi = ax.map(a => (n >= 50 ? pctile(a, 0.99) : Math.max(...a)));
+  const center = lo.map((l, i) => (l + hi[i]) / 2), range = lo.map((l, i) => hi[i] - l);
+  const maxR = Math.max(...range), minR = Math.min(...range);
+  const balance = maxR > 0 ? minR / maxR : 0;
+  const oct = new Set();
+  for (let i = 0; i < n; i++) {
+    const d = [cal.x[i] - center[0], cal.y[i] - center[1], cal.z[i] - center[2]];
+    if (Math.hypot(d[0], d[1], d[2]) > maxR * 0.35 / 2 * 1.0) oct.add((d[0] > 0 ? 1 : 0) | (d[1] > 0 ? 2 : 0) | (d[2] > 0 ? 4 : 0));
+  }
+  let verdict, cls;
+  if (n < 150) { verdict = `Keep rotating the board slowly in every direction (${n}/150 samples).`; cls = 'warn'; }
+  else if (oct.size < 8) { verdict = `Cover more directions: ${oct.size}/8 regions reached. Tumble the board like a ball, upside down and on every side.`; cls = 'warn'; }
+  else if (balance < 0.6) { verdict = 'Enough coverage, but the three axis ranges are uneven (metal nearby or an incomplete rotation). The offsets will still help.'; cls = 'warn'; }
+  else { verdict = 'Good coverage. You can stop and save the offsets.'; cls = 'ok'; }
+  return { n, lo, hi, center: center.map(c => Math.round(c * 10) / 10), range, balance, oct: oct.size, verdict, cls };
+}
+
+function calStart() {
+  const r = calReady();
+  if (!r.ok) { logTerminal(r.msg); return; }
+  cal.x = []; cal.y = []; cal.z = []; cal.n = 0; cal.n0 = 0; cal.active = true;
+  sendRaw('m 1\n');
+  logTerminal('Compass calibration started: rotate the board through every orientation.');
+}
+function calStop() {
+  if (!cal.active) return;
+  cal.active = false;
+  sendRaw('m 0\n');
+  logTerminal('Compass calibration stopped.');
+}
+function calReset() { cal.x = []; cal.y = []; cal.z = []; cal.n = 0; cal.n0 = 0; }
+
+function setMagAll(board, arr) {
+  const k = board === 'r' ? 'robotMag' : 'ctrlMag';
+  const next = { ...cfg.fw, robotMag: [...cfg.fw.robotMag], ctrlMag: [...cfg.fw.ctrlMag] };
+  next[k] = arr.slice();
+  try { cfg.fw = normFw(next); } catch (e) { logTerminal(e.message); return false; }
+  refreshAll();
+  return true;
+}
+function calSave() {
+  const st = calStats();
+  if (!st || st.n < 50) { logTerminal('Not enough compass samples yet. Rotate the board a bit longer.'); return; }
+  const board = calBoard(), off = st.center;
+  if (!setMagAll(board, off)) return;
+  if (serialPort) sendRaw(`o ${off[0]} ${off[1]} ${off[2]}\n`);        // use them right away, without re-flashing
+  cal.saved = { board, off, at: new Date().toLocaleTimeString() };
+  logTerminal(`Compass offsets ${off.join(', ')} saved to Settings for the ${board === 'r' ? 'robot' : 'controller'} and applied live. Re-flash to make them permanent.`);
+}
+function gyroCalibrate() {
+  const r = calReady();
+  if (!r.ok && !(deviceInfo && deviceInfo.fusion === 1)) { logTerminal(r.msg); return; }
+  cal.gyro = 'running';
+  sendRaw('g\n');
+  logTerminal('Gyro calibration started: keep the board completely still for 2 seconds.');
+}
+
+// --- drawing ---
+function drawCalPlots(ctx, w, h, st) {
+  const panels = [['X', 'Y', cal.x, cal.y, 0, 1], ['X', 'Z', cal.x, cal.z, 0, 2], ['Y', 'Z', cal.y, cal.z, 1, 2]];
+  const pw = w / 3, half = Math.max(...st.range) / 2 * 1.2 || 1, s = Math.min(pw, h) * 0.42 / half;
+  panels.forEach(([an, bn, a, b, ia, ib], k) => {
+    const cx = pw * (k + 0.5), cy = h * 0.52;
+    ctx.strokeStyle = 'rgba(100,116,139,.45)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - pw * 0.45, cy); ctx.lineTo(cx + pw * 0.45, cy); ctx.moveTo(cx, cy - h * 0.42); ctx.lineTo(cx, cy + h * 0.42); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, half / 1.2 * s, 0, Math.PI * 2); ctx.stroke();   // ideal circle
+    ctx.fillStyle = 'rgba(56,189,248,.8)';
+    for (let i = 0; i < a.length; i++) ctx.fillRect(cx + (a[i] - st.center[ia]) * s - 1, cy - (b[i] - st.center[ib]) * s - 1, 2, 2);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '600 12px system-ui,sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`${an} / ${bn}`, cx, 14); ctx.textAlign = 'left';
+  });
+}
+
+function drawCalibration(now) {
+  requestAnimationFrame(drawCalibration);
+  if ($('tab-calibrate').classList.contains('hidden')) return;
+  if (now - cal.hzAt > 1000) { cal.hz = Math.round((cal.n - cal.n0) * 1000 / Math.max(1, now - cal.hzAt)); cal.n0 = cal.n; cal.hzAt = now; }
+  const st = calStats();
+  const cv = $('cal-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (r.width) {
+    if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, r.width, r.height);
+    if (st) drawCalPlots(ctx, r.width, r.height, st);
+    else { ctx.fillStyle = '#64748b'; ctx.font = '13px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Press “Start compass calibration”, then rotate the board in every direction.', r.width / 2, r.height / 2); ctx.textAlign = 'left'; }
+  }
+  if (now - cal.textAt < 200) return;
+  cal.textAt = now;
+  const rd = calReady(), bd = deviceInfo ? (deviceInfo.mode === 1 ? '🎮 Controller' : '🤖 Robot') : '–';
+  $('cal-board').textContent = rd.ok ? `Calibrating the ${bd}` : rd.msg;
+  $('cal-start').disabled = !rd.ok || cal.active;
+  $('cal-stop').disabled = !cal.active;
+  $('cal-save').disabled = !st || st.n < 50;
+  $('gyro-btn').disabled = !(deviceInfo && deviceInfo.fusion === 1);
+  $('gyro-status').textContent = { idle: '', running: '⏳ Calibrating... keep the board still', done: '✔ Gyro calibrated' }[cal.gyro];
+  const bk = calBoard() === 'r' ? 'robotMag' : 'ctrlMag';
+  const fmt = (v) => (Math.round(v * 10) / 10).toString();
+  $('cal-info').innerHTML = `<div class="kv"><span class="mute">Samples</span><span>${cal.n}${cal.active ? ` · ${cal.hz} Hz` : ''}</span></div>` +
+    (st ? `<div class="scroll-x"><table class="mono"><thead><tr><th></th><th>Min</th><th>Max</th><th>Range</th><th>New offset</th><th>Saved offset</th></tr></thead><tbody>${['X', 'Y', 'Z'].map((n, i) =>
+      `<tr><td><b>${n}</b></td><td>${fmt(st.lo[i])}</td><td>${fmt(st.hi[i])}</td><td>${fmt(st.range[i])}</td><td class="brand"><b>${fmt(st.center[i])}</b></td><td class="mute">${fmt(cfg.fw[bk][i])}</td></tr>`).join('')}</tbody></table></div>
+      <div class="sbox ${st.cls}">${st.cls === 'ok' ? '✔' : '⚠'} ${esc(st.verdict)}</div>`
+    : '<div class="xs dim">No samples yet.</div>') +
+    (cal.saved ? `<div class="sbox info">ℹ Saved ${cal.saved.off.join(', ')} for the ${cal.saved.board === 'r' ? 'robot' : 'controller'} at ${cal.saved.at}. Re-flash that board (Prepare tab) to make the offsets permanent.</div>` : '');
+}
+
+// ---------- load & safety settings (Settings tab) ----------
+function normSafety(s) {
+  s = s || {};
+  const num = (v, d, lo, hi, name) => {
+    const x = (v === undefined || v === null || v === '') ? d : parseFloat(v);
+    if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`);
+    return x;
+  };
+  return { maxSpeed: num(s.maxSpeed, 120, 0, 1000, 'Max speed'), stallErr: num(s.stallErr, 12, 3, 60, 'Overload error'),
+           stallMs: num(s.stallMs, 400, 100, 3000, 'Overload time'), retries: Math.round(num(s.retries, 2, 0, 6, 'Retries')),
+           slowdown: num(s.slowdown, 0.6, 0.2, 0.95, 'Slow-down factor'), minScale: num(s.minScale, 0.3, 0.1, 1, 'Minimum speed') };
+}
+function normRobot(r) {
+  r = r || {};
+  const num = (v, d, lo, hi, name) => {
+    const x = (v === undefined || v === null || v === '') ? d : parseFloat(v);
+    if (!(x >= lo && x <= hi)) throw new Error(`${name} must be between ${lo} and ${hi}`);
+    return x;
+  };
+  return { legCm: num(r.legCm, 6, 1, 40, 'Leg length'), massKg: num(r.massKg, 0.5, 0.05, 30, 'Robot mass'), servoKgCm: num(r.servoKgCm, 2, 0.2, 50, 'Servo torque') };
+}
+function setSafety(key, val) {
+  try { cfg.safety = normSafety({ ...cfg.safety, [key]: val }); logTerminal(`Safety setting ${key} = ${cfg.safety[key]}`); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setRobot(key, val) {
+  try { cfg.robot = normRobot({ ...cfg.robot, [key]: val }); } catch (e) { logTerminal(e.message); }
+  refreshAll();
+}
+function setFb(id, key, val) {
+  const s = S(id), prev = { fbPin: s.fbPin, fbRaw0: s.fbRaw0, fbRaw180: s.fbRaw180 };
+  s[key] = parseInt(val);
+  try {
+    if (s.fbPin >= 0) {
+      if (servoState.some(o => o.id !== id && o.fbPin === s.fbPin)) throw new Error(`ADC pin ${s.fbPin} is already used by another servo`);
+      if (!(s.fbRaw0 >= 0 && s.fbRaw0 <= 4095 && s.fbRaw180 >= 0 && s.fbRaw180 <= 4095 && Math.abs(s.fbRaw180 - s.fbRaw0) >= 100)) throw new Error('Feedback readings must be 0–4095 and at least 100 apart (use Auto-cal)');
+    }
+  } catch (e) { Object.assign(s, prev); logTerminal(e.message); }
+  refreshAll();
+}
+function renderSafety() {
+  const s = cfg.safety, r = cfg.robot;
+  ['maxSpeed', 'stallErr', 'stallMs', 'retries', 'slowdown', 'minScale'].forEach(k => { $('sf-' + k).value = s[k]; });
+  ['legCm', 'massKg', 'servoKgCm'].forEach(k => { $('rb-' + k).value = r[k]; });
+  const perLeg = r.massKg / 3, torque = perLeg * r.legCm, pct = torque / r.servoKgCm * 100;
+  const maxMass = 3 * (0.5 * r.servoKgCm / r.legCm);
+  const cls = pct <= 50 ? 'ok' : 'warn';
+  const msg = pct <= 50 ? 'Comfortable: servos stay under half their rated torque.'
+    : pct <= 80 ? 'Borderline: expect strain, especially when a leg lifts. Keep the speed limit low and the poses gentle.'
+    : 'Above what these servos can safely hold. Lighten the robot, shorten the legs, or use stronger servos, otherwise they will stall and the gears can strip.';
+  $('load-calc').innerHTML = `<div class="kv"><span class="mute">Load per leg (3 feet down)</span><span>${perLeg.toFixed(2)} kg</span></div>
+    <div class="kv"><span class="mute">Torque on a lift servo (leg horizontal)</span><span>${torque.toFixed(2)} kg·cm</span></div>
+    <div class="kv"><span class="mute">Share of rated torque</span><span>${pct.toFixed(0)}%</span></div>
+    <div class="kv"><span class="mute">Heaviest robot for 50% load</span><span>${maxMass.toFixed(2)} kg</span></div>
+    <div class="sbox ${cls}">${cls === 'ok' ? '✔' : '⚠'} ${msg}</div>`;
+}
+
+// ---------- run the sequence on the robot (upload once, play locally) ----------
+const PROG_MAX = 2048, CHUNK = 200;
+let progCounter = 0, ackWait = null;
+
+function crc16(bytes) {
+  let c = 0xFFFF;
+  for (const b of bytes) { c ^= b << 8; for (let i = 0; i < 8; i++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c;
+}
+const toHex = (arr) => arr.map(b => b.toString(16).padStart(2, '0')).join('');
+
+// Steps: 1 = MOVE (ms u16, servo mask u16, one angle byte per servo)   2 = WAIT (ms u16)
+function compileProgram() {
+  const moveMs = parseInt($('move-ms').value), gap = parseInt($('sequence-delay').value);
+  const bytes = [], u16 = (v) => bytes.push(v & 255, (v >> 8) & 255);
+  const order = [...servoState].sort((a, b) => a.pin - b.pin);
+  const wait = (ms) => { while (ms > 0) { const w = Math.min(ms, 65535); bytes.push(2); u16(w); ms -= w; } };
+  let steps = 0;
+  sequence.forEach((b, i) => {
+    if (b.type === 'pose') {
+      const p = poseObj(b.poseId);
+      if (!p) return;
+      let mask = 0; const angles = [];
+      order.forEach(s => { if (s.enabled && p.angles[s.pin] !== undefined) { mask |= 1 << s.pin; angles.push(clamp(p.angles[s.pin], s.min, s.max)); } });
+      if (!mask) return;
+      bytes.push(1); u16(moveMs); u16(mask); bytes.push(...angles); steps++;
+      const next = sequence[i + 1];
+      if (next && next.type === 'pose' && gap > 0) { wait(gap); steps++; }
+    } else { wait(b.ms); steps++; }
+  });
+  return { bytes, steps };
+}
+
+function setRunStatus(t, cls) { const e = $('run-status'); e.textContent = t; e.style.color = cls === 'bad' ? 'var(--rose)' : cls === 'ok' ? '#34d399' : ''; }
+
+function sendWithAck(text, key, tries = 3, timeout = 1500) {
+  return new Promise(async (resolve) => {
+    for (let i = 0; i < tries; i++) {
+      const p = new Promise(r => { ackWait = { key, resolve: r }; setTimeout(() => r(false), timeout); });
+      await sendRaw(text);
+      const ok = await p;
+      ackWait = null;
+      if (ok) return resolve(true);
+    }
+    resolve(false);
+  });
+}
+
+async function runOnRobot() {
+  if (!serialPort) { setRunStatus('Connect WebSerial to the robot or the controller first.', 'bad'); return; }
+  if (!deviceInfo || !deviceInfo.prog) { setRunStatus('This board\'s firmware cannot run sequences. Copy the new code from Prepare and re-flash.', 'bad'); return; }
+  if (!sequence.length) { setRunStatus('The sequence is empty.', 'bad'); return; }
+  const { bytes, steps } = compileProgram();
+  if (!bytes.length) { setRunStatus('Nothing to send: no enabled servos in the poses.', 'bad'); return; }
+  if (bytes.length > PROG_MAX) { setRunStatus(`The sequence is too long for the robot (${bytes.length} of ${PROG_MAX} bytes). Shorten it or split it.`, 'bad'); return; }
+  const crc = crc16(bytes), loop = $('loop-toggle').checked, id = (progCounter = (progCounter % 250) + 1);
+  const chunks = Math.ceil(bytes.length / CHUNK);
+  setRunStatus(`Uploading ${steps} steps (${bytes.length} bytes, ${chunks} packet${chunks > 1 ? 's' : ''})...`);
+  for (let off = 0; off < bytes.length; off += CHUNK) {
+    const part = bytes.slice(off, off + CHUNK), last = off + CHUNK >= bytes.length;
+    const flags = (last ? 1 : 0) | (loop ? 2 : 0);          // bit0: run as soon as everything arrived, bit1: loop
+    const ok = await sendWithAck(`PU ${id} ${flags} ${bytes.length} ${crc} ${off} ${toHex(part)}\n`, `PU ${off}`);
+    if (!ok) { setRunStatus(`Upload failed at byte ${off}. Check the radio link and try again.`, 'bad'); return; }
+  }
+  setRunStatus(`Sent ${steps} steps. Waiting for the robot to confirm...`);
+  logTerminal(`Uploaded sequence: ${steps} steps, ${bytes.length} bytes in ${chunks} packet(s).`);
+}
+function stopRobot() { sendRaw('PS\n'); setRunStatus('Stop sent.'); }
+function onLoopToggle(on) { if (serialPort && deviceInfo && deviceInfo.prog) sendRaw(`c 2 ${on ? 1 : 0}\n`); }
+function clearOverload() { sendRaw('c 4 0\n'); overload.text = ''; overload.sticky = false; }
+
+// ---------- robot events, telemetry and the servo monitor ----------
+const overload = { text: '', sticky: false, at: 0 };
+const PROG_BAD = { 1: 'empty or too long', 2: 'checksum or format error', 3: 'unexpected chunk', 4: 'size mismatch', 9: 'invalid step' };
+function handleRstat(line) {
+  const [, c, a, b] = line.split(/\s+/).map(Number);
+  const pinName = (p) => { const s = servoByPin(p); return s ? `pin ${p} (${s.label})` : `pin ${p}`; };
+  switch (c) {
+    case 1: setRunStatus(`Robot received the program (${b} steps).`, 'ok'); break;
+    case 2: setRunStatus(`Robot rejected the program: ${PROG_BAD[a] || 'error ' + a}. Try again.`, 'bad'); break;
+    case 3: setRunStatus(`Running on the robot${b ? ' (looping)' : ''}.`, 'ok'); break;
+    case 4: setRunStatus('Finished.', 'ok'); break;
+    case 5: setRunStatus('Stopped.'); break;
+    case 6: overload.text = `Overload on ${pinName(a)}: the servo was held, not forced.`; overload.at = performance.now(); logTerminal(overload.text); break;
+    case 7: overload.text = `Sequence stopped after repeated overload on ${pinName(a)}.`; overload.sticky = true; setRunStatus(overload.text, 'bad'); logTerminal(overload.text); break;
+    case 8: logTerminal(`Robot slowed all servos to ${a}% speed and is retrying.`); setRunStatus(`Overload: slowed to ${a}% and retrying...`, 'bad'); break;
+    case 9: setRunStatus('A packet was missed on the way to the robot. Run it again.', 'bad'); break;
+    case 10: overload.text = ''; overload.sticky = false; logTerminal('Overload cleared.'); break;
+  }
+}
+
+const mon = { d: {}, stalled: 0, flags: 0, lastT: 0, n: 0, drawAt: 0 };
+const MON_WINDOW = 15000;
+function handleTelemLine(line) {
+  const p = line.split(/\s+/);
+  if (p.length < 6) return;
+  const mask = parseInt(p[2]), stm = parseInt(p[3]), fl = parseInt(p[4]);
+  const vals = p[5].split(',');
+  let i = 0;
+  const now = performance.now();
+  for (let pin = 0; pin < 16; pin++) {
+    if (!(mask & (1 << pin))) continue;
+    const v = (vals[i++] || '').split(':').map(Number);
+    if (v.length < 3 || v.some(isNaN)) continue;
+    const arr = mon.d[pin] || (mon.d[pin] = []);
+    arr.push({ t: now, tg: v[0], cm: v[1], ac: v[2] < 0 ? null : v[2] });
+    while (arr.length && now - arr[0].t > MON_WINDOW) arr.shift();
+  }
+  mon.stalled = stm; mon.flags = fl; mon.lastT = now; mon.n++;
+}
+
+function drawMonitor(now) {
+  requestAnimationFrame(drawMonitor);
+  if ($('tab-gui').classList.contains('hidden') || now - mon.drawAt < 90) return;
+  mon.drawAt = now;
+  const live = now - mon.lastT < 3000;
+  const stalledNow = live ? mon.stalled : 0;
+  const txt = overload.text || (stalledNow ? 'Overload: a servo is being held.' : '');
+  $('overload-banner').classList.toggle('hidden', !txt);
+  if (txt) $('overload-text').textContent = '⚠ ' + txt;
+
+  const cv = $('mon-canvas'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (!r.width) return;
+  const pins = [...servoState].sort((a, b) => a.pin - b.pin);
+  const cols = Math.max(1, Math.floor(r.width / 240)), rows = Math.ceil(pins.length / cols), tw = r.width / cols, th = 104;
+  cv.style.height = rows * th + 'px';
+  const W = Math.round(r.width * dpr), H = Math.round(rows * th * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, r.width, rows * th);
+  pins.forEach((s, i) => {
+    const x0 = (i % cols) * tw + 4, y0 = Math.floor(i / cols) * th + 4, w = tw - 8, h = th - 8;
+    const bad = !!(stalledNow & (1 << s.pin));
+    ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.fillRect(x0, y0, w, h);
+    ctx.strokeStyle = bad ? '#fb7185' : 'rgba(51,65,85,.9)'; ctx.lineWidth = bad ? 2 : 1; ctx.strokeRect(x0 + .5, y0 + .5, w - 1, h - 1);
+    const arr = mon.d[s.pin] || [];
+    const last = arr[arr.length - 1];
+    const hasFb = arr.some(q => q.ac !== null);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '600 11px system-ui,sans-serif';
+    ctx.fillText(`Pin ${s.pin} · ${s.label}`.slice(0, 30), x0 + 6, y0 + 13);
+    ctx.font = '11px ui-monospace,monospace'; ctx.textAlign = 'right';
+    if (last) {
+      ctx.fillStyle = bad ? '#fb7185' : (hasFb ? '#34d399' : '#94a3b8');
+      ctx.fillText(hasFb ? `tgt ${last.tg}  phys ${last.ac}  Δ${Math.abs(last.cm - last.ac)}` : `tgt ${last.tg}  cmd ${last.cm}`, x0 + w - 6, y0 + 13);
+    }
+    ctx.textAlign = 'left';
+    const px = x0 + 6, py = y0 + 22, pw = w - 12, ph = h - 28;
+    const lo = Math.max(0, s.min - 5), hi = Math.min(180, s.max + 5);
+    const X = (t) => px + pw + (t - now) / MON_WINDOW * pw, Y = (v) => py + ph - (v - lo) / (hi - lo || 1) * ph;
+    ctx.strokeStyle = 'rgba(100,116,139,.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, Y((s.min + s.max) / 2)); ctx.lineTo(px + pw, Y((s.min + s.max) / 2)); ctx.stroke();
+    if (!arr.length) { ctx.fillStyle = '#64748b'; ctx.font = '11px system-ui,sans-serif'; ctx.fillText(live ? 'not moved yet' : 'no data', px + 4, py + ph / 2 + 4); return; }
+    const line = (key, color, lw, dash) => {
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.setLineDash(dash); ctx.beginPath();
+      let started = false;
+      arr.forEach(q => { const v = q[key]; if (v === null) return; const xx = X(q.t), yy = Y(v); if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy); });
+      ctx.stroke(); ctx.setLineDash([]);
+    };
+    line('tg', '#fbbf24', 1.5, [4, 3]);
+    line('cm', '#94a3b8', 1, []);
+    if (hasFb) line('ac', '#34d399', 2, []);
+  });
+}
+
+// feedback calibration result from the robot: "FBCAL <pin> <angleLo> <rawLo> <angleHi> <rawHi>"
+function handleFbCal(line) {
+  const p = line.split(/\s+/).slice(1).map(Number);
+  if (p.length !== 5 || p.some(isNaN)) return;
+  const [pin, aLo, rLo, aHi, rHi] = p, s = servoByPin(pin);
+  if (!s) return;
+  if (aHi - aLo < 30 || Math.abs(rHi - rLo) < 100) { logTerminal(`Feedback calibration for pin ${pin} failed: the readings barely changed (${rLo} → ${rHi}). Check the feedback wire and the limits (need at least 30° of travel).`); return; }
+  const slope = (rHi - rLo) / (aHi - aLo);
+  s.fbRaw0 = Math.round(rLo + (0 - aLo) * slope);
+  s.fbRaw180 = Math.round(rLo + (180 - aLo) * slope);
+  refreshAll();
+  sendRaw(`fbset ${pin} ${s.fbRaw0} ${s.fbRaw180}\n`);
+  logTerminal(`Feedback calibrated for pin ${pin}: ${s.fbRaw0} at 0°, ${s.fbRaw180} at 180°. Saved in Settings and applied now (re-flash to keep it after a reboot).`);
+}
+function fbAutoCal(id) {
+  const s = S(id);
+  if (!serialPort || !deviceInfo || deviceInfo.mode !== 0) { logTerminal('Connect directly to the robot (its own USB) to calibrate the feedback.'); return; }
+  if (s.fbPin < 0) { logTerminal('Choose a feedback pin for this servo first (then flash the code once).'); return; }
+  if (s.max - s.min < 30) { logTerminal('Widen this servo\'s min/max limits to at least 30° for the calibration.'); return; }
+  logTerminal(`Calibrating feedback on pin ${s.pin}: the servo will sweep between its limits. Keep the leg free!`);
+  sendRaw(`fbcal ${s.pin}\n`);
+}
+
+</script>
+</body>
+</html>
